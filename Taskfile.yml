@@ -1,0 +1,62 @@
+version: "3"
+
+tasks:
+  build:
+    desc: Build all workspace crates
+    cmd: cargo build --workspace
+
+  build:release:
+    desc: Build all workspace crates in release mode
+    cmd: cargo build --workspace --release
+
+  run:
+    desc: Run the api binary
+    cmd: cargo run --bin api
+
+  run:release:
+    desc: Run the api binary in release mode
+    cmd: cargo run --bin api --release
+
+  test:
+    desc: Run all tests in the workspace
+    cmd: cargo test --workspace
+
+  fmt:
+    desc: Format all code
+    cmd: cargo fmt --all
+
+  fmt:check:
+    desc: Check formatting without applying changes
+    cmd: cargo fmt --all -- --check
+
+  clippy:
+    desc: Run clippy lints
+    cmd: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  check:
+    desc: Check workspace compiles without building
+    cmd: cargo check --workspace
+
+  audit:
+    desc: Audit dependencies for known vulnerabilities (requires cargo-audit)
+    cmd: cargo audit
+
+  deny:
+    desc: Check dependencies against policy (requires cargo-deny)
+    cmd: cargo deny check
+
+  doc:
+    desc: Build documentation
+    cmd: cargo doc --workspace --no-deps --open
+
+  clean:
+    desc: Remove build artifacts
+    cmd: cargo clean
+
+  pre-pr:
+    desc: Run all checks required before opening a PR
+    deps:
+      - fmt:check
+      - clippy
+      - test
+      - audit
