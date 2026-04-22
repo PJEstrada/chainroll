@@ -1,4 +1,6 @@
-use axum::{routing::get, Router};
+mod app_state;
+
+use axum::{Router, routing::get};
 
 #[tokio::main]
 async fn main() {
