@@ -8,4 +8,19 @@ tsid = "0.3.4"
 unic-langid = "0.9.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-chrono = "0.4.44"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+error-stack = "0.5"
+serde_with = "3.18.0"
+mockall = { version = "0.13", optional = true }
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "migrate", "chrono", "json"] }
+color-eyre = "0.6.5"
+anyhow = "1.0.102"
+
+[dev-dependencies]
+mockall = "0.13"
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[features]
+test-utils = ["mockall"]

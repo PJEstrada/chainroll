@@ -60,3 +60,5 @@ tasks:
       - clippy
       - test
       - audit
+
+  docker:
