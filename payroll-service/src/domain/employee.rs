@@ -1,4 +1,4 @@
-use crate::domain::audit::LifecycleMeta;
+use crate::domain::base_metadata::LifecycleMeta;
 use crate::domain::division::IDDivision;
 use crate::domain::ids::{IDResource, StandardID};
 use crate::domain::query::Query;
@@ -31,7 +31,7 @@ impl Employee {
         Self {
             id: StandardID::new(),
             metadata: LifecycleMeta {
-                status: crate::domain::audit::ObjectStatus::Active,
+                status: crate::domain::base_metadata::ObjectStatus::Active,
                 created: now,
                 updated: now,
             },

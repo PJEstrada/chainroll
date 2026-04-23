@@ -1,4 +1,4 @@
-use crate::domain::audit::{LifecycleMeta, ObjectStatus, ParseStatusError};
+use crate::domain::base_metadata::{LifecycleMeta, ObjectStatus, ParseStatusError};
 use crate::domain::division::IDDivision;
 use crate::domain::employee::{Employee, IDEmployee};
 use crate::domain::ids::{IdError, StandardID};
