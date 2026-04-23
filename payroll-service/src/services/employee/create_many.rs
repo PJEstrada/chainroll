@@ -1,19 +1,12 @@
 use crate::Result;
-use crate::domain::employee::Employee;
-use crate::domain::tenant::IDTenant;
+use crate::services::datastore::EmployeeStore;
 use crate::services::employee::service::EmployeeServiceImpl;
 
-pub struct CreateManyRequest {
-    pub tenant_id: IDTenant,
-    pub employees: Vec<Employee>,
-}
+pub struct CreateManyRequest;
+pub struct CreateManyResponse;
 
-pub struct CreateManyResponse {
-    pub employees: Vec<Employee>,
-}
-
-pub(super) async fn execute(
-    _svc: &EmployeeServiceImpl,
+pub(super) async fn execute<S: EmployeeStore>(
+    _svc: &EmployeeServiceImpl<S>,
     _req: CreateManyRequest,
 ) -> Result<CreateManyResponse> {
     unimplemented!()

@@ -1,19 +1,12 @@
 use crate::Result;
-use crate::domain::employee::IDEmployee;
-use crate::domain::tenant::IDTenant;
+use crate::services::datastore::EmployeeStore;
 use crate::services::employee::service::EmployeeServiceImpl;
 
-pub struct DeleteRequest {
-    pub tenant_id: IDTenant,
-    pub id: IDEmployee,
-}
+pub struct DeleteRequest;
+pub struct DeleteResponse;
 
-pub struct DeleteResponse {
-    pub deleted: bool,
-}
-
-pub(super) async fn execute(
-    _svc: &EmployeeServiceImpl,
+pub(super) async fn execute<S: EmployeeStore>(
+    _svc: &EmployeeServiceImpl<S>,
     _req: DeleteRequest,
 ) -> Result<DeleteResponse> {
     unimplemented!()

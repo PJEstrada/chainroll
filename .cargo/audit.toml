@@ -1,0 +1,7 @@
+[advisories]
+ignore = [
+    # RSA Marvin Attack - transitive dependency from sqlx-mysql
+    # We only use PostgreSQL features, but sqlx pulls in mysql dependencies
+    # No fix available as of 2026-04-23
+    "RUSTSEC-2023-0071",
+]

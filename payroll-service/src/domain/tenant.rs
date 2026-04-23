@@ -1,10 +1,7 @@
 use crate::domain::ids::IDResource;
+use serde::{Deserialize, Serialize};
 
-pub struct Tenant {
-    pub id: IDTenant,
-}
-
-#[derive(Eq, PartialEq, Clone, Copy, Debug, Hash)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug, Hash, Serialize, Deserialize)]
 pub struct IDTenant;
 
 impl IDResource for IDTenant {

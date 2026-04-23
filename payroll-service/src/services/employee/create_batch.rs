@@ -1,17 +1,12 @@
 use crate::Result;
-use crate::domain::employee::Employee;
-use crate::domain::tenant::IDTenant;
+use crate::services::datastore::EmployeeStore;
 use crate::services::employee::service::EmployeeServiceImpl;
 
-pub struct CreateBatchRequest {
-    pub tenant_id: IDTenant,
-    pub employees: Vec<Employee>,
-}
-
+pub struct CreateBatchRequest;
 pub struct CreateBatchResponse;
 
-pub(super) async fn execute(
-    _svc: &EmployeeServiceImpl,
+pub(super) async fn execute<S: EmployeeStore>(
+    _svc: &EmployeeServiceImpl<S>,
     _req: CreateBatchRequest,
 ) -> Result<CreateBatchResponse> {
     unimplemented!()

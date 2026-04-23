@@ -1,25 +1,55 @@
 mod app_state;
+mod application;
+mod routes;
+mod utils;
 
-use axum::{Router, routing::get};
+use crate::app_state::AppState;
+use application::Application;
+use payroll_service::services::datastore::postgres::employee_store::PgEmployeeStore;
+use payroll_service::services::employee::service::EmployeeServiceImpl;
+use secrecy::{ExposeSecret, SecretString};
+use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
+use utils::settings::{DATABASE_URL, prod};
 
 #[tokio::main]
 async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
+    let pg_pool = configure_postgresql().await;
+    let store = PgEmployeeStore::new(pg_pool);
+    let employee_service = EmployeeServiceImpl::new(store);
+    let app_state = AppState::new(employee_service);
 
-    // build our application with a route
-    let app = Router::new()
-        // `GET /` goes to `root`
-        .route("/", get(root));
+    let app = Application::build(app_state, prod::APP_ADDRESS)
+        .await
+        .expect("Failed to build application");
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    let result = axum::serve(listener, app).await;
-    if let Err(e) = result {
+    tracing::info!("listening on {}", app.address);
+
+    if let Err(e) = app.run().await {
         eprintln!("server error: {}", e);
     }
 }
 
-// basic handler that responds with a static string
-async fn root() -> &'static str {
-    "Hello, World!"
+async fn configure_postgresql() -> PgPool {
+    // Create a new database connection pool
+    let pg_pool = get_postgres_pool(&DATABASE_URL)
+        .await
+        .expect("Failed to create Postgres connection pool!");
+
+    // Run database migrations against our test database
+    sqlx::migrate!("../payroll-service/migrations")
+        .run(&pg_pool)
+        .await
+        .expect("Failed to run migrations");
+
+    pg_pool
+}
+
+pub async fn get_postgres_pool(url: &SecretString) -> Result<PgPool, sqlx::Error> {
+    PgPoolOptions::new()
+        .max_connections(20)
+        .connect(url.expose_secret())
+        .await
 }

@@ -1,6 +1,5 @@
-use std::future::Future;
-
 use crate::Result;
+use crate::services::datastore::EmployeeStore;
 use crate::services::employee::count::{CountRequest, CountResponse};
 use crate::services::employee::create::{CreateRequest, CreateResponse};
 use crate::services::employee::create_batch::{CreateBatchRequest, CreateBatchResponse};
@@ -14,28 +13,36 @@ use crate::services::employee::{
     count, create, create_batch, create_many, delete, exists, get, list, update,
 };
 
+#[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
+#[allow(async_fn_in_trait)]
 pub trait EmployeeService {
-    fn exists(&self, req: ExistsRequest) -> impl Future<Output = Result<ExistsResponse>> + Send;
-    fn get(&self, req: GetRequest) -> impl Future<Output = Result<GetResponse>> + Send;
-    fn count(&self, req: CountRequest) -> impl Future<Output = Result<CountResponse>> + Send;
-    fn list(&self, req: ListRequest) -> impl Future<Output = Result<ListResponse>> + Send;
-    fn create(&self, req: CreateRequest) -> impl Future<Output = Result<CreateResponse>> + Send;
-    fn create_many(
-        &self,
-        req: CreateManyRequest,
-    ) -> impl Future<Output = Result<CreateManyResponse>> + Send;
-    fn create_batch(
-        &self,
-        req: CreateBatchRequest,
-    ) -> impl Future<Output = Result<CreateBatchResponse>> + Send;
-    fn update(&self, req: UpdateRequest) -> impl Future<Output = Result<UpdateResponse>> + Send;
-    fn delete(&self, req: DeleteRequest) -> impl Future<Output = Result<DeleteResponse>> + Send;
+    async fn exists(&self, req: ExistsRequest) -> Result<ExistsResponse>;
+    async fn get(&self, req: GetRequest) -> Result<GetResponse>;
+    async fn count(&self, req: CountRequest) -> Result<CountResponse>;
+    async fn list(&self, req: ListRequest) -> Result<ListResponse>;
+    async fn create(&self, req: CreateRequest) -> Result<CreateResponse>;
+    async fn create_many(&self, req: CreateManyRequest) -> Result<CreateManyResponse>;
+    async fn create_batch(&self, req: CreateBatchRequest) -> Result<CreateBatchResponse>;
+    async fn update(&self, req: UpdateRequest) -> Result<UpdateResponse>;
+    async fn delete(&self, req: DeleteRequest) -> Result<DeleteResponse>;
 }
 
 #[derive(Debug, Clone)]
-pub struct EmployeeServiceImpl;
+pub struct EmployeeServiceImpl<S: EmployeeStore> {
+    store: S,
+}
 
-impl EmployeeService for EmployeeServiceImpl {
+impl<S: EmployeeStore> EmployeeServiceImpl<S> {
+    pub fn new(store: S) -> Self {
+        Self { store }
+    }
+
+    pub fn store(&self) -> &S {
+        &self.store
+    }
+}
+
+impl<S: EmployeeStore> EmployeeService for EmployeeServiceImpl<S> {
     async fn exists(&self, req: ExistsRequest) -> Result<ExistsResponse> {
         exists::execute(self, req).await
     }
