@@ -1,8 +1,9 @@
 use crate::app_state::AppStateInner;
-use crate::routes::errors::EmployeeAPIError;
-use axum::Json;
+use crate::routes::employee::errors::EmployeeAPIError;
+use crate::routes::tenant_extractor::TenantId;
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
+use axum::Json;
 use http::{HeaderMap, StatusCode};
 use payroll_service::domain::employee::IDEmployee;
 use payroll_service::domain::ids::StandardID;
@@ -12,6 +13,7 @@ use payroll_service::services::employee::service::EmployeeService;
 
 pub(crate) async fn get_employee<E: EmployeeService>(
     State(state): State<AppStateInner<E>>,
+    TenantId(tenant_id): TenantId,
     Path(id): Path<String>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, EmployeeAPIError> {
@@ -41,8 +43,8 @@ pub(crate) async fn get_employee<E: EmployeeService>(
 mod tests {
     use super::*;
     use crate::app_state::AppStateInner;
-    use axum::Router;
     use axum::routing::get;
+    use axum::Router;
     use axum_test::TestServer;
     use payroll_service::domain::employee::Employee;
     use payroll_service::services::employee::get::GetResponse;

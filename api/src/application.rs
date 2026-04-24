@@ -1,9 +1,9 @@
 use crate::app_state::AppState;
 use crate::routes;
 use crate::utils::tracing::{make_span_with_request_id, on_request, on_response};
-use axum::Router;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::serve::Serve;
+use axum::Router;
 use http::Method;
 use std::error::Error;
 use tokio::net::TcpListener;
@@ -30,7 +30,7 @@ impl Application {
             .allow_origin(allowed_origins);
 
         let router = Router::new()
-            .nest("/employees", employee_routes(&app_state))
+            .nest("/employees", employee_routes())
             .with_state(app_state)
             .layer(cors)
             .layer(
@@ -53,13 +53,8 @@ impl Application {
     }
 }
 
-fn employee_routes(_app_state: &AppState) -> Router<AppState> {
-    Router::new().route(
-        "/{id}",
-        get(routes::employee::get_employee::<
-            payroll_service::services::employee::service::EmployeeServiceImpl<
-                payroll_service::services::datastore::postgres::employee_store::PgEmployeeStore,
-            >,
-        >),
-    )
+fn employee_routes() -> Router<AppState> {
+    Router::new()
+        .route("/", post(routes::employee::create::create_employee))
+        .route("/{id}", get(routes::employee::get::get_employee))
 }
