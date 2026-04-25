@@ -255,7 +255,7 @@ mod tests {
 
         let created = store.create(&tenant_id, &employee).await.unwrap();
         let updated = Employee::new("67890".to_string(), "Jane".to_string(), "Smith".to_string())
-            .with_id(created.id().clone());
+            .with_id(*created.id());
 
         let result = store.update(&tenant_id, &updated).await.unwrap();
 
