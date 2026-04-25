@@ -19,6 +19,11 @@ impl IntoResponse for EmployeeAPIError {
     fn into_response(self) -> Response {
         let status = match &self {
             EmployeeAPIError::InvalidId(_) => StatusCode::BAD_REQUEST,
+            EmployeeAPIError::ServiceError(report)
+                if matches!(report.current_context(), payroll_service::Error::NotFound) =>
+            {
+                StatusCode::NOT_FOUND
+            }
             EmployeeAPIError::ServiceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EmployeeAPIError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
         };

@@ -1,7 +1,5 @@
 pub mod count;
 pub mod create;
-pub mod create_batch;
-pub mod create_many;
 pub mod delete;
 pub mod exists;
 pub mod get;

@@ -1,6 +1,6 @@
 pub mod postgres;
 
-use crate::domain::employee::{Employee, IDEmployee};
+use crate::domain::employee::{Employee, EmployeeQuery, IDEmployee};
 use crate::domain::ids::StandardID;
 use crate::domain::tenant::IDTenant;
 use postgres::employee_store::EmployeeStoreError;
@@ -19,4 +19,27 @@ pub trait EmployeeStore {
         tenant_id: &StandardID<IDTenant>,
         employee: &Employee,
     ) -> std::result::Result<Employee, EmployeeStoreError>;
+
+    async fn list(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        query: &EmployeeQuery,
+    ) -> std::result::Result<Vec<Employee>, EmployeeStoreError>;
+
+    async fn count(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+    ) -> std::result::Result<i64, EmployeeStoreError>;
+
+    async fn exists(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        id: &StandardID<IDEmployee>,
+    ) -> std::result::Result<bool, EmployeeStoreError>;
+
+    async fn delete(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        id: &StandardID<IDEmployee>,
+    ) -> std::result::Result<(), EmployeeStoreError>;
 }

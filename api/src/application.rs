@@ -2,7 +2,7 @@ use crate::app_state::AppState;
 use crate::routes;
 use crate::utils::tracing::{make_span_with_request_id, on_request, on_response};
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::get;
 use axum::serve::Serve;
 use http::Method;
 use std::error::Error;
@@ -23,8 +23,7 @@ impl Application {
         ];
 
         let cors = CorsLayer::new()
-            // Allow GET and POST requests
-            .allow_methods([Method::GET, Method::POST])
+            .allow_methods([Method::GET, Method::POST, Method::DELETE])
             // Allow cookies to be included in requests
             .allow_credentials(true)
             .allow_origin(allowed_origins);
@@ -55,6 +54,19 @@ impl Application {
 
 fn employee_routes() -> Router<AppState> {
     Router::new()
-        .route("/", post(routes::employee::create::create_employee))
-        .route("/{id}", get(routes::employee::get::get_employee))
+        .route(
+            "/",
+            get(routes::employee::list::list_employees)
+                .post(routes::employee::create::create_employee),
+        )
+        .route("/count", get(routes::employee::count::count_employees))
+        .route(
+            "/{id}",
+            get(routes::employee::get::get_employee)
+                .delete(routes::employee::delete::delete_employee),
+        )
+        .route(
+            "/{id}/exists",
+            get(routes::employee::exists::employee_exists),
+        )
 }

@@ -1,6 +1,6 @@
 use crate::domain::base_metadata::{LifecycleMeta, ObjectStatus, ParseStatusError};
 use crate::domain::division::IDDivision;
-use crate::domain::employee::{Employee, IDEmployee};
+use crate::domain::employee::{Employee, EmployeeQuery, IDEmployee};
 use crate::domain::ids::{IdError, StandardID};
 use crate::domain::tenant::IDTenant;
 use crate::services::datastore::EmployeeStore;
@@ -106,6 +106,14 @@ impl PgEmployeeStore {
     }
 }
 
+fn query_limit(query: &EmployeeQuery) -> std::result::Result<i64, EmployeeStoreError> {
+    i64::try_from(query.base.limit.unwrap_or(100)).map_err(|err| anyhow::anyhow!(err).into())
+}
+
+fn query_offset(query: &EmployeeQuery) -> std::result::Result<i64, EmployeeStoreError> {
+    i64::try_from(query.base.offset.unwrap_or(0)).map_err(|err| anyhow::anyhow!(err).into())
+}
+
 impl EmployeeStore for PgEmployeeStore {
     async fn get(
         &self,
@@ -150,6 +158,92 @@ impl EmployeeStore for PgEmployeeStore {
             .await?;
 
         Employee::try_from(result)
+    }
+
+    async fn list(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        query: &EmployeeQuery,
+    ) -> Result<Vec<Employee>, EmployeeStoreError> {
+        let limit = query_limit(query)?;
+        let offset = query_offset(query)?;
+
+        let rows = if let Some(division_id) = &query.division_id {
+            sqlx::query_as::<sqlx::Postgres, EmployeeRow>(
+                r#"
+                SELECT * FROM employees
+                WHERE tenant_id = $1 AND divisions ? $2
+                ORDER BY created_at ASC, id ASC
+                LIMIT $3 OFFSET $4
+                "#,
+            )
+            .bind(tenant_id.to_string())
+            .bind(division_id.to_string())
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query_as::<sqlx::Postgres, EmployeeRow>(
+                r#"
+                SELECT * FROM employees
+                WHERE tenant_id = $1
+                ORDER BY created_at ASC, id ASC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(tenant_id.to_string())
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        rows.into_iter().map(Employee::try_from).collect()
+    }
+
+    async fn count(&self, tenant_id: &StandardID<IDTenant>) -> Result<i64, EmployeeStoreError> {
+        let (count,) =
+            sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM employees WHERE tenant_id = $1")
+                .bind(tenant_id.to_string())
+                .fetch_one(&self.pool)
+                .await?;
+
+        Ok(count)
+    }
+
+    async fn exists(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        id: &StandardID<IDEmployee>,
+    ) -> Result<bool, EmployeeStoreError> {
+        let (exists,) = sqlx::query_as::<_, (bool,)>(
+            "SELECT EXISTS(SELECT 1 FROM employees WHERE id = $1 AND tenant_id = $2)",
+        )
+        .bind(id.to_string())
+        .bind(tenant_id.to_string())
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(exists)
+    }
+
+    async fn delete(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        id: &StandardID<IDEmployee>,
+    ) -> Result<(), EmployeeStoreError> {
+        let result = sqlx::query("DELETE FROM employees WHERE id = $1 AND tenant_id = $2")
+            .bind(id.to_string())
+            .bind(tenant_id.to_string())
+            .execute(&self.pool)
+            .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(EmployeeStoreError::EmployeeNotFound);
+        }
+
+        Ok(())
     }
 }
 
@@ -205,5 +299,69 @@ mod tests {
         assert_eq!(result.identifier(), result2.clone().unwrap().identifier());
         assert_eq!(result.first_name(), result2.clone().unwrap().first_name());
         assert_eq!(result.last_name(), result2.unwrap().last_name());
+    }
+
+    #[sqlx::test]
+    async fn test_list_employees(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let employee1 = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+        let employee2 = Employee::new("67890".to_string(), "Jane".to_string(), "Smith".to_string());
+
+        store.create(&tenant_id, &employee1).await.unwrap();
+        store.create(&tenant_id, &employee2).await.unwrap();
+
+        let result = store
+            .list(&tenant_id, &EmployeeQuery::default())
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].identifier(), "12345");
+        assert_eq!(result[1].identifier(), "67890");
+    }
+
+    #[sqlx::test]
+    async fn test_count_employees(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let other_tenant_id = StandardID::<IDTenant>::new();
+        let employee1 = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+        let employee2 = Employee::new("67890".to_string(), "Jane".to_string(), "Smith".to_string());
+        let employee3 = Employee::new(
+            "ABCDE".to_string(),
+            "Other".to_string(),
+            "Tenant".to_string(),
+        );
+
+        store.create(&tenant_id, &employee1).await.unwrap();
+        store.create(&tenant_id, &employee2).await.unwrap();
+        store.create(&other_tenant_id, &employee3).await.unwrap();
+
+        assert_eq!(store.count(&tenant_id).await.unwrap(), 2);
+    }
+
+    #[sqlx::test]
+    async fn test_exists_employee(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let employee = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+
+        let created = store.create(&tenant_id, &employee).await.unwrap();
+
+        assert!(store.exists(&tenant_id, created.id()).await.unwrap());
+        assert!(!store.exists(&tenant_id, &StandardID::new()).await.unwrap());
+    }
+
+    #[sqlx::test]
+    async fn test_delete_employee(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let employee = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+
+        let created = store.create(&tenant_id, &employee).await.unwrap();
+
+        store.delete(&tenant_id, created.id()).await.unwrap();
+        assert!(!store.exists(&tenant_id, created.id()).await.unwrap());
     }
 }
