@@ -13,4 +13,10 @@ pub trait EmployeeStore {
         tenant_id: &StandardID<IDTenant>,
         id: &StandardID<IDEmployee>,
     ) -> std::result::Result<Option<Employee>, EmployeeStoreError>;
+
+    async fn create(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        employee: &Employee,
+    ) -> std::result::Result<Employee, EmployeeStoreError>;
 }

@@ -67,6 +67,46 @@ impl Employee {
         self.attributes = attributes;
         self
     }
+
+    pub fn id(&self) -> &StandardID<IDEmployee> {
+        &self.id
+    }
+
+    pub fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
+    pub fn first_name(&self) -> &str {
+        &self.first_name
+    }
+    pub fn last_name(&self) -> &str {
+        &self.last_name
+    }
+
+    pub fn divisions(&self) -> &Vec<StandardID<IDDivision>> {
+        &self.divisions
+    }
+    pub fn culture(&self) -> &Option<LanguageIdentifier> {
+        &self.culture
+    }
+    pub fn attributes(&self) -> &Option<HashMap<String, Value>> {
+        &self.attributes
+    }
+    pub fn metadata(&self) -> &LifecycleMeta {
+        &self.metadata
+    }
+    pub fn status(&self) -> &crate::domain::base_metadata::ObjectStatus {
+        &self.metadata.status
+    }
+    pub fn created_at(&self) -> &chrono::DateTime<chrono::Utc> {
+        &self.metadata.created
+    }
+    pub fn updated_at(&self) -> &chrono::DateTime<chrono::Utc> {
+        &self.metadata.updated
+    }
+    pub fn set_status(&mut self, status: crate::domain::base_metadata::ObjectStatus) {
+        self.metadata.status = status;
+    }
 }
 
 #[derive(Eq, PartialEq, Clone, Debug)]

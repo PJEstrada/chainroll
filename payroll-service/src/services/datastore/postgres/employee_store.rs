@@ -60,6 +60,23 @@ impl TryFrom<EmployeeRow> for Employee {
     }
 }
 
+impl From<(&StandardID<IDTenant>, &Employee)> for EmployeeRow {
+    fn from((tenant_id, employee): (&StandardID<IDTenant>, &Employee)) -> Self {
+        Self {
+            id: employee.id().to_string(),
+            tenant_id: tenant_id.to_string(),
+            identifier: employee.identifier().to_string(),
+            first_name: employee.first_name().to_string(),
+            last_name: employee.last_name().to_string(),
+            divisions: employee.divisions().iter().map(|d| d.to_string()).collect(),
+            culture: employee.culture().clone().map(|c| c.to_string()),
+            attributes: employee.attributes().clone(),
+            status: employee.metadata().status.to_string(),
+            created_at: employee.metadata().created,
+            updated_at: employee.metadata().updated,
+        }
+    }
+}
 #[derive(Debug, Error)]
 pub enum EmployeeStoreError {
     #[error("Employee already exists")]
@@ -104,5 +121,89 @@ impl EmployeeStore for PgEmployeeStore {
         .await?;
 
         row.map(Employee::try_from).transpose()
+    }
+
+    async fn create(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        employee: &Employee,
+    ) -> Result<Employee, EmployeeStoreError> {
+        let row = EmployeeRow::from((tenant_id, employee));
+
+        let result = sqlx::query_as::<sqlx::Postgres, EmployeeRow>(
+            r#"
+        INSERT INTO employees (id, tenant_id, identifier, first_name, last_name, divisions, culture, attributes, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+        "#,
+        )
+            .bind(&row.id)
+            .bind(&row.tenant_id)
+            .bind(&row.identifier)
+            .bind(&row.first_name)
+            .bind(&row.last_name)
+            .bind(sqlx::types::Json(&row.divisions))
+            .bind(&row.culture)
+            .bind(sqlx::types::Json(&row.attributes))
+            .bind(&row.status)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Employee::try_from(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_employee_to_row_roundtrip() {
+        let tenant_id = StandardID::<IDTenant>::new();
+        let employee = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+
+        // domain → row
+        let row = EmployeeRow::from((&tenant_id, &employee));
+
+        assert_eq!(row.identifier, "12345");
+        assert_eq!(row.first_name, "John");
+        assert_eq!(row.last_name, "Doe");
+        assert_eq!(row.tenant_id, tenant_id.to_string());
+        assert_eq!(row.status, "active"); // whatever the default is
+        assert!(row.divisions.is_empty());
+
+        // row → domain (roundtrip)
+        let back = Employee::try_from(row).unwrap();
+        assert_eq!(back.identifier(), employee.identifier());
+        assert_eq!(back.first_name(), employee.first_name());
+    }
+
+    #[sqlx::test]
+    async fn test_create_employee(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let employee = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+
+        let result = store.create(&tenant_id, &employee).await.unwrap();
+        assert_eq!(result.identifier(), "12345");
+        assert_eq!(result.first_name(), "John");
+        assert_eq!(result.last_name(), "Doe");
+    }
+
+    #[sqlx::test]
+    async fn test_get_employee(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let employee = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+
+        let result = store.create(&tenant_id, &employee).await.unwrap();
+        assert_eq!(result.identifier(), "12345");
+        assert_eq!(result.first_name(), "John");
+        assert_eq!(result.last_name(), "Doe");
+
+        let result2 = store.get(&tenant_id, result.id()).await.unwrap();
+        assert_eq!(result.identifier(), result2.clone().unwrap().identifier());
+        assert_eq!(result.first_name(), result2.clone().unwrap().first_name());
+        assert_eq!(result.last_name(), result2.unwrap().last_name());
     }
 }
