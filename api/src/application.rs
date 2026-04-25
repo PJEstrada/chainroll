@@ -23,8 +23,7 @@ impl Application {
         ];
 
         let cors = CorsLayer::new()
-            // Allow GET and POST requests
-            .allow_methods([Method::GET, Method::POST])
+            .allow_methods([Method::GET, Method::POST, Method::PUT])
             // Allow cookies to be included in requests
             .allow_credentials(true)
             .allow_origin(allowed_origins);
@@ -56,5 +55,8 @@ impl Application {
 fn employee_routes() -> Router<AppState> {
     Router::new()
         .route("/", post(routes::employee::create::create_employee))
-        .route("/{id}", get(routes::employee::get::get_employee))
+        .route(
+            "/{id}",
+            get(routes::employee::get::get_employee).put(routes::employee::update::update_employee),
+        )
 }
