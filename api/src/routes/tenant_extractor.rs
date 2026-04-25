@@ -1,9 +1,11 @@
+use axum::Json;
 use axum::extract::FromRequestParts;
 use axum::response::{IntoResponse, Response};
-use http::request::Parts;
 use http::StatusCode;
+use http::request::Parts;
 use payroll_service::domain::ids::StandardID;
 use payroll_service::domain::tenant::IDTenant;
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -19,14 +21,11 @@ pub enum TenantIdRejection {
 
 impl IntoResponse for TenantIdRejection {
     fn into_response(self) -> Response {
-        match self {
-            TenantIdRejection::Missing => {
-                (StatusCode::BAD_REQUEST, "Tenant ID is missing").into_response()
-            }
-            TenantIdRejection::Invalid => {
-                (StatusCode::BAD_REQUEST, "Tenant ID is invalid").into_response()
-            }
-        }
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": self.to_string() })),
+        )
+            .into_response()
     }
 }
 

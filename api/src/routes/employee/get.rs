@@ -1,13 +1,12 @@
 use crate::app_state::AppStateInner;
 use crate::routes::employee::errors::EmployeeAPIError;
 use crate::routes::tenant_extractor::TenantId;
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
-use axum::Json;
-use http::{HeaderMap, StatusCode};
+use http::StatusCode;
 use payroll_service::domain::employee::IDEmployee;
 use payroll_service::domain::ids::StandardID;
-use payroll_service::domain::tenant::IDTenant;
 use payroll_service::services::employee::get::GetRequest;
 use payroll_service::services::employee::service::EmployeeService;
 
@@ -15,17 +14,7 @@ pub(crate) async fn get_employee<E: EmployeeService>(
     State(state): State<AppStateInner<E>>,
     TenantId(tenant_id): TenantId,
     Path(id): Path<String>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, EmployeeAPIError> {
-    let tenant_id = match headers.get("x-tenant-id") {
-        Some(tenant_id) => {
-            let raw = tenant_id
-                .to_str()
-                .map_err(|_| EmployeeAPIError::TenantIDMissing)?;
-            StandardID::<IDTenant>::try_from(raw.to_string())?
-        }
-        None => return Err(EmployeeAPIError::TenantIDMissing),
-    };
     let employee_id = StandardID::<IDEmployee>::try_from(id.clone())?;
     // call state.employee_service.get(...)
     let request = GetRequest {
@@ -43,8 +32,8 @@ pub(crate) async fn get_employee<E: EmployeeService>(
 mod tests {
     use super::*;
     use crate::app_state::AppStateInner;
-    use axum::routing::get;
     use axum::Router;
+    use axum::routing::get;
     use axum_test::TestServer;
     use payroll_service::domain::employee::Employee;
     use payroll_service::services::employee::get::GetResponse;

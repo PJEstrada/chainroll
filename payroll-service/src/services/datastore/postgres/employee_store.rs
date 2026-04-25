@@ -201,7 +201,7 @@ mod tests {
         assert_eq!(result.first_name(), "John");
         assert_eq!(result.last_name(), "Doe");
 
-        let result2 = store.get(&tenant_id, &result.id()).await.unwrap();
+        let result2 = store.get(&tenant_id, result.id()).await.unwrap();
         assert_eq!(result.identifier(), result2.clone().unwrap().identifier());
         assert_eq!(result.first_name(), result2.clone().unwrap().first_name());
         assert_eq!(result.last_name(), result2.unwrap().last_name());

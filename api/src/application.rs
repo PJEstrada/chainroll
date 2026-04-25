@@ -1,9 +1,9 @@
 use crate::app_state::AppState;
 use crate::routes;
 use crate::utils::tracing::{make_span_with_request_id, on_request, on_response};
+use axum::Router;
 use axum::routing::{get, post};
 use axum::serve::Serve;
-use axum::Router;
 use http::Method;
 use std::error::Error;
 use tokio::net::TcpListener;

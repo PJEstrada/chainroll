@@ -1,17 +1,16 @@
 use crate::app_state::AppStateInner;
 use crate::routes::employee::errors::EmployeeAPIError;
 use crate::routes::tenant_extractor::TenantId;
+use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
-use axum::Json;
-use http::{HeaderMap, StatusCode};
+use http::StatusCode;
 use payroll_service::services::employee::create::{CreateEmployeeData, CreateRequest};
 use payroll_service::services::employee::service::EmployeeService;
 
 pub(crate) async fn create_employee<E: EmployeeService>(
     State(state): State<AppStateInner<E>>,
     TenantId(tenant_id): TenantId,
-    headers: HeaderMap,
     Json(data): Json<CreateEmployeeData>,
 ) -> Result<impl IntoResponse, EmployeeAPIError> {
     let request = CreateRequest { tenant_id, data };
@@ -23,8 +22,8 @@ pub(crate) async fn create_employee<E: EmployeeService>(
 mod tests {
     use super::*;
     use crate::app_state::AppStateInner;
-    use axum::routing::post;
     use axum::Router;
+    use axum::routing::post;
     use axum_test::TestServer;
     use payroll_service::domain::employee::Employee;
     use payroll_service::services::employee::create::CreateResponse;
@@ -65,11 +64,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_missing_body_returns_422() {
+    async fn test_missing_required_fields_returns_422() {
         let server = TestServer::new(build_app(test_employee())).unwrap();
         let response = server
             .post("/employees")
             .add_header("x-tenant-id", "000000000003V")
+            .json(&json!({})) // valid JSON but missing required fields
             .await;
         response.assert_status_unprocessable_entity();
     }
