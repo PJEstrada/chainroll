@@ -160,6 +160,46 @@ impl EmployeeStore for PgEmployeeStore {
         Employee::try_from(result)
     }
 
+    async fn update(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        employee: &Employee,
+    ) -> Result<Employee, EmployeeStoreError> {
+        let row = EmployeeRow::from((tenant_id, employee));
+
+        let result = sqlx::query_as::<sqlx::Postgres, EmployeeRow>(
+            r#"
+        UPDATE employees
+        SET identifier = $3,
+            first_name = $4,
+            last_name = $5,
+            divisions = $6,
+            culture = $7,
+            attributes = $8,
+            status = $9,
+            updated_at = now()
+        WHERE id = $1 AND tenant_id = $2
+        RETURNING *
+        "#,
+        )
+        .bind(&row.id)
+        .bind(&row.tenant_id)
+        .bind(&row.identifier)
+        .bind(&row.first_name)
+        .bind(&row.last_name)
+        .bind(sqlx::types::Json(&row.divisions))
+        .bind(&row.culture)
+        .bind(sqlx::types::Json(&row.attributes))
+        .bind(&row.status)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        result
+            .map(Employee::try_from)
+            .transpose()?
+            .ok_or(EmployeeStoreError::EmployeeNotFound)
+    }
+
     async fn list(
         &self,
         tenant_id: &StandardID<IDTenant>,
@@ -363,5 +403,23 @@ mod tests {
 
         store.delete(&tenant_id, created.id()).await.unwrap();
         assert!(!store.exists(&tenant_id, created.id()).await.unwrap());
+    }
+
+    #[sqlx::test]
+    async fn test_update_employee(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let employee = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+
+        let created = store.create(&tenant_id, &employee).await.unwrap();
+        let updated = Employee::new("67890".to_string(), "Jane".to_string(), "Smith".to_string())
+            .with_id(*created.id());
+
+        let result = store.update(&tenant_id, &updated).await.unwrap();
+
+        assert_eq!(result.id(), created.id());
+        assert_eq!(result.identifier(), "67890");
+        assert_eq!(result.first_name(), "Jane");
+        assert_eq!(result.last_name(), "Smith");
     }
 }

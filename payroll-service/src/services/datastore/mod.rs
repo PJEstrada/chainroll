@@ -20,6 +20,12 @@ pub trait EmployeeStore {
         employee: &Employee,
     ) -> std::result::Result<Employee, EmployeeStoreError>;
 
+    async fn update(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        employee: &Employee,
+    ) -> Result<Employee, EmployeeStoreError>;
+
     async fn list(
         &self,
         tenant_id: &StandardID<IDTenant>,
