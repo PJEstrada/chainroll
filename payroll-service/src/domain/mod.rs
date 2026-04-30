@@ -4,3 +4,4 @@ pub mod employee;
 pub mod ids;
 pub mod query;
 pub mod tenant;
+pub mod user;
