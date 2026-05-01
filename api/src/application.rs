@@ -23,7 +23,7 @@ impl Application {
         ];
 
         let cors = CorsLayer::new()
-            .allow_methods([Method::GET, Method::POST,Method::PUT,  Method::DELETE])
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
             // Allow cookies to be included in requests
             .allow_credentials(true)
             .allow_origin(allowed_origins);
