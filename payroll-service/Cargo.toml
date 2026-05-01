@@ -16,6 +16,7 @@ mockall = { version = "0.13", optional = true }
 sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "migrate", "chrono", "json"] }
 color-eyre = "0.6.5"
 anyhow = "1.0.102"
+alloy-primitives = "1.5.7"
 
 [dev-dependencies]
 mockall = "0.13"
