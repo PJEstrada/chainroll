@@ -2,6 +2,7 @@ use crate::domain::base_metadata::LifecycleMeta;
 use crate::domain::division::IDDivision;
 use crate::domain::ids::{IDResource, StandardID};
 use crate::domain::query::Query;
+use crate::domain::wallets::WalletAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::DisplayFromStr;
@@ -19,6 +20,7 @@ pub struct Employee {
     divisions: Vec<StandardID<IDDivision>>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     culture: Option<LanguageIdentifier>,
+    wallet_address: Option<WalletAddress>,
 
     // TODO: add calendar relation
     // calendar: Calendar,
@@ -40,8 +42,14 @@ impl Employee {
             last_name,
             divisions: Vec::new(),
             culture: None,
+            wallet_address: None,
             attributes: None,
         }
+    }
+
+    pub fn with_wallet_address(mut self, wallet_address: Option<WalletAddress>) -> Self {
+        self.wallet_address = wallet_address;
+        self
     }
 
     pub fn with_id(mut self, id: StandardID<IDEmployee>) -> Self {
@@ -88,6 +96,9 @@ impl Employee {
     }
     pub fn culture(&self) -> &Option<LanguageIdentifier> {
         &self.culture
+    }
+    pub fn wallet_address(&self) -> &Option<WalletAddress> {
+        &self.wallet_address
     }
     pub fn attributes(&self) -> &Option<HashMap<String, Value>> {
         &self.attributes

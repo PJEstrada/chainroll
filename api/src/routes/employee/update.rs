@@ -27,6 +27,7 @@ pub(crate) async fn update_employee<E: EmployeeService>(
             divisions: data.divisions,
             culture: data.culture,
             attributes: data.attributes,
+            wallet_address: data.wallet_address,
         },
     };
     let response = state.employee_service.update(request).await?;
@@ -62,12 +63,19 @@ mod tests {
         json!({
             "identifier": "EMP-001",
             "first_name": "John",
-            "last_name": "Doe"
+            "last_name": "Doe",
+            "wallet_address": "0x1234567890abcdef1234567890abcdef12345678"
         })
     }
 
     fn test_employee() -> Employee {
         Employee::new("EMP-001".to_string(), "John".to_string(), "Doe".to_string())
+            .with_wallet_address(Some(
+                payroll_service::domain::wallets::WalletAddress::parse(
+                    "0x1234567890abcdef1234567890abcdef12345678",
+                )
+                .unwrap(),
+            ))
     }
 
     #[tokio::test]
@@ -106,6 +114,10 @@ mod tests {
         assert_eq!(body["identifier"], "EMP-001");
         assert_eq!(body["first_name"], "John");
         assert_eq!(body["last_name"], "Doe");
+        assert_eq!(
+            body["wallet_address"],
+            "0x1234567890AbcdEF1234567890aBcdef12345678"
+        );
         assert_eq!(body["metadata"]["status"], "Active");
         assert!(body["id"].is_string());
     }

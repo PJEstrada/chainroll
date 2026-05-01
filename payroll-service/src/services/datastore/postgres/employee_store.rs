@@ -3,6 +3,7 @@ use crate::domain::division::IDDivision;
 use crate::domain::employee::{Employee, EmployeeQuery, IDEmployee};
 use crate::domain::ids::{IdError, StandardID};
 use crate::domain::tenant::IDTenant;
+use crate::domain::wallets::{WalletAddress, WalletAddressError};
 use crate::services::datastore::EmployeeStore;
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -23,6 +24,7 @@ struct EmployeeRow {
     #[sqlx(json)]
     attributes: Option<HashMap<String, serde_json::Value>>,
     status: String,
+    wallet_address: Option<String>,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -45,6 +47,11 @@ impl TryFrom<EmployeeRow> for Employee {
             .transpose()?;
 
         let status = ObjectStatus::from_str(row.status.as_str())?;
+        let wallet = row
+            .wallet_address
+            .map(WalletAddress::parse)
+            .transpose()
+            .map_err(EmployeeStoreError::InvalidWalletAddress)?;
         let metadata = LifecycleMeta {
             status,
             created: row.created_at,
@@ -56,6 +63,7 @@ impl TryFrom<EmployeeRow> for Employee {
             .with_metadata(metadata)
             .with_culture(culture)
             .with_divisions(divisions)
+            .with_wallet_address(wallet)
             .with_attributes(row.attributes))
     }
 }
@@ -72,6 +80,10 @@ impl From<(&StandardID<IDTenant>, &Employee)> for EmployeeRow {
             culture: employee.culture().clone().map(|c| c.to_string()),
             attributes: employee.attributes().clone(),
             status: employee.metadata().status.to_string(),
+            wallet_address: employee
+                .wallet_address()
+                .as_ref()
+                .map(|wallet| wallet.as_str().to_string()),
             created_at: employee.metadata().created,
             updated_at: employee.metadata().updated,
         }
@@ -89,6 +101,8 @@ pub enum EmployeeStoreError {
     InvalidLocale(#[from] unic_langid::LanguageIdentifierError),
     #[error("Invalid status: {0}")]
     InvalidStatus(#[from] ParseStatusError),
+    #[error("Invalid wallet address: {0}")]
+    InvalidWalletAddress(#[from] WalletAddressError),
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
     #[error("Unexpected error: {0}")]
@@ -140,8 +154,8 @@ impl EmployeeStore for PgEmployeeStore {
 
         let result = sqlx::query_as::<sqlx::Postgres, EmployeeRow>(
             r#"
-        INSERT INTO employees (id, tenant_id, identifier, first_name, last_name, divisions, culture, attributes, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO employees (id, tenant_id, identifier, first_name, last_name, divisions, culture, attributes, status, wallet_address)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
         "#,
         )
@@ -154,6 +168,7 @@ impl EmployeeStore for PgEmployeeStore {
             .bind(&row.culture)
             .bind(sqlx::types::Json(&row.attributes))
             .bind(&row.status)
+            .bind(row.wallet_address.as_deref())
             .fetch_one(&self.pool)
             .await?;
 
@@ -177,6 +192,7 @@ impl EmployeeStore for PgEmployeeStore {
             culture = $7,
             attributes = $8,
             status = $9,
+            wallet_address = $10,
             updated_at = now()
         WHERE id = $1 AND tenant_id = $2
         RETURNING *
@@ -191,6 +207,7 @@ impl EmployeeStore for PgEmployeeStore {
         .bind(&row.culture)
         .bind(sqlx::types::Json(&row.attributes))
         .bind(&row.status)
+        .bind(row.wallet_address.as_deref())
         .fetch_optional(&self.pool)
         .await?;
 
@@ -304,12 +321,32 @@ mod tests {
         assert_eq!(row.last_name, "Doe");
         assert_eq!(row.tenant_id, tenant_id.to_string());
         assert_eq!(row.status, "active"); // whatever the default is
+        assert!(row.wallet_address.is_none());
         assert!(row.divisions.is_empty());
 
         // row → domain (roundtrip)
         let back = Employee::try_from(row).unwrap();
         assert_eq!(back.identifier(), employee.identifier());
         assert_eq!(back.first_name(), employee.first_name());
+        assert_eq!(back.wallet_address(), employee.wallet_address());
+    }
+
+    #[test]
+    fn test_employee_to_row_roundtrip_with_wallet() {
+        let tenant_id = StandardID::<IDTenant>::new();
+        let wallet = WalletAddress::parse("0x1234567890abcdef1234567890abcdef12345678").unwrap();
+        let employee = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string())
+            .with_wallet_address(Some(wallet));
+
+        let row = EmployeeRow::from((&tenant_id, &employee));
+
+        assert_eq!(
+            row.wallet_address.as_deref(),
+            Some("0x1234567890AbcdEF1234567890aBcdef12345678")
+        );
+
+        let back = Employee::try_from(row).unwrap();
+        assert_eq!(back.wallet_address(), employee.wallet_address());
     }
 
     #[sqlx::test]
@@ -322,6 +359,23 @@ mod tests {
         assert_eq!(result.identifier(), "12345");
         assert_eq!(result.first_name(), "John");
         assert_eq!(result.last_name(), "Doe");
+        assert!(result.wallet_address().is_none());
+    }
+
+    #[sqlx::test]
+    async fn test_create_employee_with_wallet(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let wallet = WalletAddress::parse("0x1234567890abcdef1234567890abcdef12345678").unwrap();
+        let employee = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string())
+            .with_wallet_address(Some(wallet));
+
+        let result = store.create(&tenant_id, &employee).await.unwrap();
+
+        assert_eq!(
+            result.wallet_address().as_ref().map(WalletAddress::as_str),
+            Some("0x1234567890AbcdEF1234567890aBcdef12345678")
+        );
     }
 
     #[sqlx::test]
@@ -413,7 +467,10 @@ mod tests {
 
         let created = store.create(&tenant_id, &employee).await.unwrap();
         let updated = Employee::new("67890".to_string(), "Jane".to_string(), "Smith".to_string())
-            .with_id(*created.id());
+            .with_id(*created.id())
+            .with_wallet_address(Some(
+                WalletAddress::parse("0x1234567890abcdef1234567890abcdef12345678").unwrap(),
+            ));
 
         let result = store.update(&tenant_id, &updated).await.unwrap();
 
@@ -421,5 +478,6 @@ mod tests {
         assert_eq!(result.identifier(), "67890");
         assert_eq!(result.first_name(), "Jane");
         assert_eq!(result.last_name(), "Smith");
+        assert!(result.wallet_address().is_some());
     }
 }

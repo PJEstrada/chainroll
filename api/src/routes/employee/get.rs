@@ -105,6 +105,7 @@ mod tests {
         assert_eq!(body["last_name"], "Doe");
         assert_eq!(body["divisions"], json!([]));
         assert_eq!(body["culture"], json!(null));
+        assert_eq!(body["wallet_address"], json!(null));
         assert_eq!(body["attributes"], json!(null));
         assert_eq!(body["metadata"]["status"], "Active");
         assert!(body["id"].is_string(), "id should be present");

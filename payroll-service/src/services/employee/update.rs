@@ -3,9 +3,11 @@ use crate::domain::division::IDDivision;
 use crate::domain::employee::{Employee, IDEmployee};
 use crate::domain::ids::StandardID;
 use crate::domain::tenant::IDTenant;
+use crate::domain::wallets::WalletAddress;
 use crate::services::datastore::EmployeeStore;
 use crate::services::datastore::postgres::employee_store::EmployeeStoreError;
 use crate::services::employee::service::EmployeeServiceImpl;
+use error_stack::ResultExt;
 use serde::Deserialize;
 use serde_json::Value;
 use serde_with::DisplayFromStr;
@@ -24,6 +26,7 @@ pub struct UpdateEmployeeData {
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub culture: Option<LanguageIdentifier>,
     pub attributes: Option<HashMap<String, Value>>,
+    pub wallet_address: Option<String>,
 }
 pub struct UpdateRequest {
     pub tenant_id: StandardID<IDTenant>,
@@ -38,11 +41,21 @@ pub(super) async fn execute<S: EmployeeStore>(
     svc: &EmployeeServiceImpl<S>,
     req: UpdateRequest,
 ) -> Result<UpdateResponse> {
+    let wallet = req
+        .data
+        .wallet_address
+        .map(WalletAddress::parse)
+        .transpose()
+        .change_context(crate::error::Error::InvalidInput(
+            "invalid wallet address".to_string(),
+        ))?;
+
     let employee = Employee::new(req.data.identifier, req.data.first_name, req.data.last_name)
         .with_id(req.data.id)
         .with_divisions(req.data.divisions.unwrap_or_default())
         .with_culture(req.data.culture)
-        .with_attributes(req.data.attributes);
+        .with_attributes(req.data.attributes)
+        .with_wallet_address(wallet);
 
     let employee = svc
         .store()
@@ -74,6 +87,7 @@ mod tests {
                 divisions: None,
                 culture: None,
                 attributes: None,
+                wallet_address: None,
             },
         }
     }
