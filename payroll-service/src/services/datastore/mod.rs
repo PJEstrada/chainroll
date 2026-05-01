@@ -1,9 +1,17 @@
 pub mod postgres;
 
+use crate::domain::audit::AuditEvent;
 use crate::domain::employee::{Employee, EmployeeQuery, IDEmployee};
 use crate::domain::ids::StandardID;
 use crate::domain::tenant::IDTenant;
+use postgres::audit_store::AuditStoreError;
 use postgres::employee_store::EmployeeStoreError;
+
+#[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
+#[allow(async_fn_in_trait)]
+pub trait AuditStore {
+    async fn create(&self, event: &AuditEvent) -> std::result::Result<AuditEvent, AuditStoreError>;
+}
 
 #[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
 #[allow(async_fn_in_trait)]
