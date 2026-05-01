@@ -23,7 +23,7 @@ impl Application {
         ];
 
         let cors = CorsLayer::new()
-            .allow_methods([Method::GET, Method::POST, Method::PUT])
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
             // Allow cookies to be included in requests
             .allow_credentials(true)
             .allow_origin(allowed_origins);
@@ -58,5 +58,20 @@ fn employee_routes() -> Router<AppState> {
         .route(
             "/{id}",
             get(routes::employee::get::get_employee).put(routes::employee::update::update_employee),
+        )
+        .route(
+            "/",
+            get(routes::employee::list::list_employees)
+                .post(routes::employee::create::create_employee),
+        )
+        .route("/count", get(routes::employee::count::count_employees))
+        .route(
+            "/{id}",
+            get(routes::employee::get::get_employee)
+                .delete(routes::employee::delete::delete_employee),
+        )
+        .route(
+            "/{id}/exists",
+            get(routes::employee::exists::employee_exists),
         )
 }

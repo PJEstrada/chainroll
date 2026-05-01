@@ -125,6 +125,7 @@ impl IDResource for IDEmployee {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
 pub struct EmployeeQuery {
     pub base: Query,
     pub division_id: Option<StandardID<IDDivision>>, // employee-specific filter
