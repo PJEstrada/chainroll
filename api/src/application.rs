@@ -30,6 +30,7 @@ impl Application {
 
         let router = Router::new()
             .nest("/employees", employee_routes())
+            .nest("/treasury-accounts", treasury_routes())
             .with_state(app_state)
             .layer(cors)
             .layer(
@@ -69,5 +70,20 @@ fn employee_routes() -> Router<AppState> {
         .route(
             "/{id}/exists",
             get(routes::employee::exists::employee_exists),
+        )
+}
+
+fn treasury_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/",
+            get(routes::treasury::list::list_treasury_accounts)
+                .post(routes::treasury::create::create_treasury_account),
+        )
+        .route(
+            "/{id}",
+            get(routes::treasury::get::get_treasury_account)
+                .put(routes::treasury::update::update_treasury_account)
+                .delete(routes::treasury::deactivate::deactivate_treasury_account),
         )
 }
