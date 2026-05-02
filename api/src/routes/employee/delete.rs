@@ -1,4 +1,4 @@
-use crate::app_state::AppStateInner;
+use crate::app_state::EmployeeState;
 use crate::routes::employee::errors::EmployeeAPIError;
 use crate::routes::tenant_extractor::TenantId;
 use axum::extract::{Path, State};
@@ -10,7 +10,7 @@ use payroll_service::services::employee::delete::DeleteRequest;
 use payroll_service::services::employee::service::EmployeeService;
 
 pub(crate) async fn delete_employee<E: EmployeeService>(
-    State(state): State<AppStateInner<E>>,
+    State(state): State<EmployeeState<E>>,
     TenantId(tenant_id): TenantId,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, EmployeeAPIError> {
@@ -28,7 +28,6 @@ pub(crate) async fn delete_employee<E: EmployeeService>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_state::AppStateInner;
     use axum::Router;
     use axum::routing::delete;
     use axum_test::TestServer;
@@ -41,7 +40,7 @@ mod tests {
         mock.expect_delete().returning(|_req| Ok(DeleteResponse));
         Router::new()
             .route("/employees/{id}", delete(delete_employee))
-            .with_state(AppStateInner::new(mock))
+            .with_state(EmployeeState::new(mock))
     }
 
     #[tokio::test]

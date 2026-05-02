@@ -1,4 +1,4 @@
-use crate::app_state::AppStateInner;
+use crate::app_state::EmployeeState;
 use crate::routes::employee::errors::EmployeeAPIError;
 use crate::routes::tenant_extractor::TenantId;
 use axum::Json;
@@ -9,7 +9,7 @@ use payroll_service::services::employee::create::{CreateEmployeeData, CreateRequ
 use payroll_service::services::employee::service::EmployeeService;
 
 pub(crate) async fn create_employee<E: EmployeeService>(
-    State(state): State<AppStateInner<E>>,
+    State(state): State<EmployeeState<E>>,
     TenantId(tenant_id): TenantId,
     Json(data): Json<CreateEmployeeData>,
 ) -> Result<impl IntoResponse, EmployeeAPIError> {
@@ -21,7 +21,6 @@ pub(crate) async fn create_employee<E: EmployeeService>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_state::AppStateInner;
     use axum::Router;
     use axum::routing::post;
     use axum_test::TestServer;
@@ -37,7 +36,7 @@ mod tests {
                 employee: employee.clone(),
             })
         });
-        let state = AppStateInner::new(mock);
+        let state = EmployeeState::new(mock);
         Router::new()
             .route("/employees", post(create_employee))
             .with_state(state)

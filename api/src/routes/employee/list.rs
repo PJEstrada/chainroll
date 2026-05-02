@@ -1,4 +1,4 @@
-use crate::app_state::AppStateInner;
+use crate::app_state::EmployeeState;
 use crate::routes::employee::errors::EmployeeAPIError;
 use crate::routes::tenant_extractor::TenantId;
 use axum::Json;
@@ -17,7 +17,7 @@ pub(crate) struct ListEmployeeQuery {
 }
 
 pub(crate) async fn list_employees<E: EmployeeService>(
-    State(state): State<AppStateInner<E>>,
+    State(state): State<EmployeeState<E>>,
     TenantId(tenant_id): TenantId,
     Query(query): Query<ListEmployeeQuery>,
 ) -> Result<impl IntoResponse, EmployeeAPIError> {
@@ -41,7 +41,6 @@ pub(crate) async fn list_employees<E: EmployeeService>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_state::AppStateInner;
     use axum::Router;
     use axum::routing::get;
     use axum_test::TestServer;
@@ -59,7 +58,7 @@ mod tests {
         });
         Router::new()
             .route("/employees", get(list_employees))
-            .with_state(AppStateInner::new(mock))
+            .with_state(EmployeeState::new(mock))
     }
 
     #[tokio::test]
