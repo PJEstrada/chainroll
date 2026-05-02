@@ -5,5 +5,6 @@ pub mod employee;
 pub mod ids;
 pub mod query;
 pub mod tenant;
+pub mod treasury;
 pub mod user;
 pub mod wallets;

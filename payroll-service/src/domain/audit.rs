@@ -139,6 +139,8 @@ pub struct ParseAuditEntityTypeError(String);
 pub enum AuditEventType {
     EmployeeCreated,
     TreasuryAccountCreated,
+    TreasuryAccountUpdated,
+    TreasuryAccountDeactivated,
     CompensationProfileCreated,
     PayrunCreated,
     PayoutAttemptStarted,
@@ -152,6 +154,10 @@ impl Display for AuditEventType {
         match self {
             AuditEventType::EmployeeCreated => write!(f, "employee_created"),
             AuditEventType::TreasuryAccountCreated => write!(f, "treasury_account_created"),
+            AuditEventType::TreasuryAccountUpdated => write!(f, "treasury_account_updated"),
+            AuditEventType::TreasuryAccountDeactivated => {
+                write!(f, "treasury_account_deactivated")
+            }
             AuditEventType::CompensationProfileCreated => write!(f, "compensation_profile_created"),
             AuditEventType::PayrunCreated => write!(f, "payrun_created"),
             AuditEventType::PayoutAttemptStarted => write!(f, "payout_attempt_started"),
@@ -171,6 +177,8 @@ impl FromStr for AuditEventType {
         match s {
             "employee_created" => Ok(Self::EmployeeCreated),
             "treasury_account_created" => Ok(Self::TreasuryAccountCreated),
+            "treasury_account_updated" => Ok(Self::TreasuryAccountUpdated),
+            "treasury_account_deactivated" => Ok(Self::TreasuryAccountDeactivated),
             "compensation_profile_created" => Ok(Self::CompensationProfileCreated),
             "payrun_created" => Ok(Self::PayrunCreated),
             "payout_attempt_started" => Ok(Self::PayoutAttemptStarted),
