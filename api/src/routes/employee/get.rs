@@ -1,4 +1,4 @@
-use crate::app_state::AppStateInner;
+use crate::app_state::EmployeeState;
 use crate::routes::employee::errors::EmployeeAPIError;
 use crate::routes::tenant_extractor::TenantId;
 use axum::Json;
@@ -11,7 +11,7 @@ use payroll_service::services::employee::get::GetRequest;
 use payroll_service::services::employee::service::EmployeeService;
 
 pub(crate) async fn get_employee<E: EmployeeService>(
-    State(state): State<AppStateInner<E>>,
+    State(state): State<EmployeeState<E>>,
     TenantId(tenant_id): TenantId,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, EmployeeAPIError> {
@@ -31,7 +31,6 @@ pub(crate) async fn get_employee<E: EmployeeService>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_state::AppStateInner;
     use axum::Router;
     use axum::routing::get;
     use axum_test::TestServer;
@@ -47,7 +46,7 @@ mod tests {
                 employee: e.clone(),
             })
         });
-        let state = AppStateInner::new(mock);
+        let state = EmployeeState::new(mock);
         Router::new()
             .route("/employees/{id}", get(get_employee))
             .with_state(state)

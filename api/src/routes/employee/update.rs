@@ -1,4 +1,4 @@
-use crate::app_state::AppStateInner;
+use crate::app_state::EmployeeState;
 use crate::routes::employee::errors::EmployeeAPIError;
 use crate::routes::tenant_extractor::TenantId;
 use axum::Json;
@@ -12,7 +12,7 @@ use payroll_service::services::employee::service::EmployeeService;
 use payroll_service::services::employee::update::{UpdateEmployeeData, UpdateRequest};
 
 pub(crate) async fn update_employee<E: EmployeeService>(
-    State(state): State<AppStateInner<E>>,
+    State(state): State<EmployeeState<E>>,
     TenantId(tenant_id): TenantId,
     Path(id): Path<String>,
     Json(data): Json<CreateEmployeeData>,
@@ -37,7 +37,6 @@ pub(crate) async fn update_employee<E: EmployeeService>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_state::AppStateInner;
     use axum::Router;
     use axum::routing::put;
     use axum_test::TestServer;
@@ -53,7 +52,7 @@ mod tests {
                 employee: employee.clone(),
             })
         });
-        let state = AppStateInner::new(mock);
+        let state = EmployeeState::new(mock);
         Router::new()
             .route("/employees/{id}", put(update_employee))
             .with_state(state)

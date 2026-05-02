@@ -1,4 +1,4 @@
-use crate::app_state::AppStateInner;
+use crate::app_state::EmployeeState;
 use crate::routes::employee::errors::EmployeeAPIError;
 use crate::routes::tenant_extractor::TenantId;
 use axum::Json;
@@ -9,7 +9,7 @@ use payroll_service::services::employee::service::EmployeeService;
 use serde_json::json;
 
 pub(crate) async fn count_employees<E: EmployeeService>(
-    State(state): State<AppStateInner<E>>,
+    State(state): State<EmployeeState<E>>,
     TenantId(tenant_id): TenantId,
 ) -> Result<impl IntoResponse, EmployeeAPIError> {
     let response = state
@@ -23,7 +23,6 @@ pub(crate) async fn count_employees<E: EmployeeService>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_state::AppStateInner;
     use axum::Router;
     use axum::routing::get;
     use axum_test::TestServer;
@@ -37,7 +36,7 @@ mod tests {
             .returning(move |_req| Ok(CountResponse { count }));
         Router::new()
             .route("/employees/count", get(count_employees))
-            .with_state(AppStateInner::new(mock))
+            .with_state(EmployeeState::new(mock))
     }
 
     #[tokio::test]
