@@ -474,7 +474,7 @@ fn validate_name(name: &str) -> Result<(), TreasuryAccountError> {
     Ok(())
 }
 
-fn validate_token_decimals(token_decimals: u8) -> Result<(), TreasuryAccountError> {
+pub(crate) fn validate_token_decimals(token_decimals: u8) -> Result<(), TreasuryAccountError> {
     if token_decimals > MAX_TOKEN_DECIMALS {
         return Err(TreasuryAccountError::TokenDecimalsTooLarge {
             max: MAX_TOKEN_DECIMALS,
@@ -484,7 +484,7 @@ fn validate_token_decimals(token_decimals: u8) -> Result<(), TreasuryAccountErro
     Ok(())
 }
 
-fn validate_default_status(
+pub(crate) fn validate_default_status(
     status: ObjectStatus,
     is_default: bool,
 ) -> Result<(), TreasuryAccountError> {

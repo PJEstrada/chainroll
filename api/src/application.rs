@@ -30,6 +30,10 @@ impl Application {
 
         let router = Router::new()
             .nest("/employees", employee_routes())
+            .nest(
+                "/employees/{employee_id}/compensation-profiles",
+                compensation_routes(),
+            )
             .nest("/treasury-accounts", treasury_routes())
             .with_state(app_state)
             .layer(cors)
@@ -85,5 +89,23 @@ fn treasury_routes() -> Router<AppState> {
             get(routes::treasury::get::get_treasury_account)
                 .put(routes::treasury::update::update_treasury_account)
                 .delete(routes::treasury::deactivate::deactivate_treasury_account),
+        )
+}
+
+fn compensation_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/",
+            get(routes::compensation::list::list_compensation_profiles)
+                .post(routes::compensation::create::create_compensation_profile),
+        )
+        .route(
+            "/active",
+            get(routes::compensation::get_active::get_active_compensation_profile),
+        )
+        .route(
+            "/{id}",
+            get(routes::compensation::get::get_compensation_profile)
+                .put(routes::compensation::update::update_compensation_profile),
         )
 }
