@@ -71,7 +71,9 @@ pub(super) fn map_store_error(err: TreasuryStoreError) -> Report<Error> {
         | TreasuryStoreError::InvalidTokenDecimals { .. } => {
             Report::new(error::Error::InvalidInput(err.to_string()))
         }
-        TreasuryStoreError::Database(_) | TreasuryStoreError::UnexpectedError(_) => {
+        TreasuryStoreError::Database(_)
+        | TreasuryStoreError::Audit(_)
+        | TreasuryStoreError::UnexpectedError(_) => {
             Report::new(err).change_context(error::Error::Database)
         }
     }

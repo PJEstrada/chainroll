@@ -76,10 +76,11 @@ impl PgAuditStore {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-}
 
-impl AuditStore for PgAuditStore {
-    async fn create(&self, event: &AuditEvent) -> Result<AuditEvent, AuditStoreError> {
+    pub(crate) async fn create_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &AuditEvent,
+    ) -> Result<AuditEvent, AuditStoreError> {
         let row = AuditEventRow::from(event);
 
         let created = sqlx::query_as::<sqlx::Postgres, AuditEventRow>(
@@ -99,10 +100,20 @@ impl AuditStore for PgAuditStore {
         .bind(&row.event_type)
         .bind(sqlx::types::Json(&row.payload))
         .bind(row.created_at)
-        .fetch_one(&self.pool)
+        .fetch_one(&mut **tx)
         .await?;
 
         AuditEvent::try_from(created)
+    }
+}
+
+impl AuditStore for PgAuditStore {
+    async fn create(&self, event: &AuditEvent) -> Result<AuditEvent, AuditStoreError> {
+        let mut tx = self.pool.begin().await?;
+        let created = Self::create_in_tx(&mut tx, event).await?;
+        tx.commit().await?;
+
+        Ok(created)
     }
 }
 

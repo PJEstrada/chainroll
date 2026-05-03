@@ -5,6 +5,8 @@ mod utils;
 
 use crate::app_state::AppState;
 use application::Application;
+use payroll_service::services::compensation::service::CompensationServiceImpl;
+use payroll_service::services::datastore::postgres::compensation_store::PgCompensationStore;
 use payroll_service::services::datastore::postgres::employee_store::PgEmployeeStore;
 use payroll_service::services::datastore::postgres::treasury_store::PgTreasuryStore;
 use payroll_service::services::employee::service::EmployeeServiceImpl;
@@ -20,10 +22,12 @@ async fn main() {
     tracing_subscriber::fmt::init();
     let pg_pool = configure_postgresql().await;
     let employee_store = PgEmployeeStore::new(pg_pool.clone());
-    let treasury_store = PgTreasuryStore::new(pg_pool);
+    let treasury_store = PgTreasuryStore::new(pg_pool.clone());
+    let compensation_store = PgCompensationStore::new(pg_pool);
     let employee_service = EmployeeServiceImpl::new(employee_store);
     let treasury_service = TreasuryServiceImpl::new(treasury_store);
-    let app_state = AppState::new(employee_service, treasury_service);
+    let compensation_service = CompensationServiceImpl::new(compensation_store);
+    let app_state = AppState::new(employee_service, treasury_service, compensation_service);
 
     let app = Application::build(app_state, prod::APP_ADDRESS)
         .await

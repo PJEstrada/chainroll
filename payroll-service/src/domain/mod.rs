@@ -1,5 +1,6 @@
 pub mod audit;
 pub mod base_metadata;
+pub mod compensation;
 pub mod division;
 pub mod employee;
 pub mod ids;

@@ -10,6 +10,7 @@ use crate::domain::treasury::{
 };
 use crate::domain::wallets::{WalletAddress, WalletAddressError};
 use crate::services::datastore::TreasuryStore;
+use crate::services::datastore::postgres::audit_store::{AuditStoreError, PgAuditStore};
 use sqlx::PgPool;
 use std::str::FromStr;
 use thiserror::Error;
@@ -138,6 +139,8 @@ pub enum TreasuryStoreError {
     InvalidTokenDecimals { actual: i16 },
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
+    #[error("Audit error: {0}")]
+    Audit(#[from] AuditStoreError),
     #[error("Unexpected error: {0}")]
     UnexpectedError(#[from] anyhow::Error),
 }
@@ -186,32 +189,6 @@ async fn clear_existing_default(
     .bind(account.chain().to_string())
     .bind(account.token_address().as_str())
     .bind(account.id().to_string())
-    .execute(&mut **tx)
-    .await?;
-
-    Ok(())
-}
-
-async fn insert_audit_event(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    event: &AuditEvent,
-) -> Result<(), TreasuryStoreError> {
-    sqlx::query(
-        r#"
-        INSERT INTO audit_events
-            (id, tenant_id, actor_id, entity_type, entity_id, event_type, payload, created_at)
-        VALUES
-            ($1, $2, $3, $4, $5, $6, $7, $8)
-        "#,
-    )
-    .bind(event.id().to_string())
-    .bind(event.tenant_id().to_string())
-    .bind(event.actor_id().to_string())
-    .bind(event.entity_type().to_string())
-    .bind(event.entity_id().to_string())
-    .bind(event.event_type().to_string())
-    .bind(sqlx::types::Json(event.payload()))
-    .bind(*event.created_at())
     .execute(&mut **tx)
     .await?;
 
@@ -310,7 +287,7 @@ impl TreasuryStore for PgTreasuryStore {
         .fetch_one(&mut *tx)
         .await?;
 
-        insert_audit_event(&mut tx, audit_event).await?;
+        PgAuditStore::create_in_tx(&mut tx, audit_event).await?;
         tx.commit().await?;
 
         TreasuryAccount::try_from(created)
@@ -368,7 +345,7 @@ impl TreasuryStore for PgTreasuryStore {
         .await?;
 
         let updated = updated.ok_or(TreasuryStoreError::TreasuryAccountNotFound)?;
-        insert_audit_event(&mut tx, audit_event).await?;
+        PgAuditStore::create_in_tx(&mut tx, audit_event).await?;
         tx.commit().await?;
 
         TreasuryAccount::try_from(updated)

@@ -1,10 +1,12 @@
 pub mod postgres;
 
 use crate::domain::audit::AuditEvent;
+use crate::domain::compensation::{CompensationProfile, IDCompensationProfile};
 use crate::domain::employee::{Employee, EmployeeQuery, IDEmployee};
 use crate::domain::ids::StandardID;
 use crate::domain::tenant::IDTenant;
 use crate::domain::treasury::{IDTreasuryAccount, TreasuryAccount, TreasuryAccountQuery};
+use crate::services::datastore::postgres::compensation_store::CompensationStoreError;
 use postgres::audit_store::AuditStoreError;
 use postgres::employee_store::EmployeeStoreError;
 use postgres::treasury_store::TreasuryStoreError;
@@ -86,4 +88,37 @@ pub trait TreasuryStore {
         account: &TreasuryAccount,
         audit_event: &AuditEvent,
     ) -> std::result::Result<TreasuryAccount, TreasuryStoreError>;
+}
+
+#[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
+#[allow(async_fn_in_trait)]
+pub trait CompensationStore: Send + Sync + 'static {
+    async fn create(
+        &self,
+        profile: &CompensationProfile,
+        audit_event: &AuditEvent,
+    ) -> Result<CompensationProfile, CompensationStoreError>;
+
+    async fn update(
+        &self,
+        profile: &CompensationProfile,
+        audit_event: &AuditEvent,
+    ) -> Result<CompensationProfile, CompensationStoreError>;
+
+    async fn get(
+        &self,
+        id: &StandardID<IDCompensationProfile>,
+    ) -> Result<Option<CompensationProfile>, CompensationStoreError>;
+
+    async fn get_active_for_employee(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        employee_id: &StandardID<IDEmployee>,
+    ) -> Result<Option<CompensationProfile>, CompensationStoreError>;
+
+    async fn list_for_employee(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        employee_id: &StandardID<IDEmployee>,
+    ) -> Result<Vec<CompensationProfile>, CompensationStoreError>;
 }
