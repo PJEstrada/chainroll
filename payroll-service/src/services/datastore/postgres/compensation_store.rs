@@ -346,6 +346,41 @@ impl CompensationStore for PgCompensationStore {
             .map(CompensationProfile::try_from)
             .collect()
     }
+
+    async fn list_active_for_tenant(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+    ) -> Result<Vec<CompensationProfile>, CompensationStoreError> {
+        let rows = sqlx::query_as::<sqlx::Postgres, CompensationProfileRow>(
+            r#"
+            SELECT
+                id,
+                tenant_id,
+                employee_id,
+                status,
+                created_at,
+                updated_at,
+                amount_units::text AS amount_units,
+                token_symbol,
+                compensation_cadence,
+                compensation_cadence_every,
+                compensation_cadence_unit,
+                valid_from,
+                valid_to
+            FROM compensation_profiles
+            WHERE tenant_id = $1
+              AND status = 'active'
+            ORDER BY created_at ASC, id ASC
+            "#,
+        )
+        .bind(tenant_id.to_string())
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(CompensationProfile::try_from)
+            .collect()
+    }
 }
 
 fn parse_cadence_from_row(
@@ -618,5 +653,34 @@ mod tests {
                 .iter()
                 .all(|profile| profile.employee_id() == &employee_id)
         );
+    }
+
+    #[sqlx::test]
+    async fn lists_active_compensation_profiles_for_tenant(pool: PgPool) {
+        let store = PgCompensationStore::new(pool);
+        let tenant_id = StandardID::new();
+        let employee_id = StandardID::new();
+        let other_tenant_id = StandardID::new();
+        let active = profile_for(tenant_id, employee_id, 2_000_000);
+        let mut inactive = profile_for(tenant_id, StandardID::new(), 1_000_000);
+        inactive.deactivate();
+        let other_tenant = profile_for(other_tenant_id, StandardID::new(), 3_000_000);
+
+        store
+            .create(&inactive, &audit_event(&inactive))
+            .await
+            .unwrap();
+        store.create(&active, &audit_event(&active)).await.unwrap();
+        store
+            .create(&other_tenant, &audit_event(&other_tenant))
+            .await
+            .unwrap();
+
+        let profiles = store.list_active_for_tenant(&tenant_id).await.unwrap();
+
+        assert_eq!(profiles.len(), 1);
+        assert_eq!(profiles[0].id(), active.id());
+        assert_eq!(profiles[0].tenant_id(), &tenant_id);
+        assert_eq!(profiles[0].status(), ObjectStatus::Active);
     }
 }

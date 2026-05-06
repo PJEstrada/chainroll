@@ -44,6 +44,11 @@ pub trait EmployeeStore {
         query: &EmployeeQuery,
     ) -> std::result::Result<Vec<Employee>, EmployeeStoreError>;
 
+    async fn list_active(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+    ) -> std::result::Result<Vec<Employee>, EmployeeStoreError>;
+
     async fn count(
         &self,
         tenant_id: &StandardID<IDTenant>,
@@ -75,6 +80,11 @@ pub trait TreasuryStore {
         &self,
         tenant_id: &StandardID<IDTenant>,
         query: &TreasuryAccountQuery,
+    ) -> std::result::Result<Vec<TreasuryAccount>, TreasuryStoreError>;
+
+    async fn list_default_active(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
     ) -> std::result::Result<Vec<TreasuryAccount>, TreasuryStoreError>;
 
     async fn create(
@@ -121,4 +131,13 @@ pub trait CompensationStore: Send + Sync + 'static {
         tenant_id: &StandardID<IDTenant>,
         employee_id: &StandardID<IDEmployee>,
     ) -> Result<Vec<CompensationProfile>, CompensationStoreError>;
+
+    async fn list_active_for_tenant(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+    ) -> Result<Vec<CompensationProfile>, CompensationStoreError>;
 }
+
+#[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
+#[allow(async_fn_in_trait)]
+pub trait PayrunStore: Send + Sync + 'static {}

@@ -34,6 +34,7 @@ impl Application {
                 "/employees/{employee_id}/compensation-profiles",
                 compensation_routes(),
             )
+            .nest("/payruns", payrun_routes())
             .nest("/treasury-accounts", treasury_routes())
             .with_state(app_state)
             .layer(cors)
@@ -108,4 +109,11 @@ fn compensation_routes() -> Router<AppState> {
             get(routes::compensation::get::get_compensation_profile)
                 .put(routes::compensation::update::update_compensation_profile),
         )
+}
+
+fn payrun_routes() -> Router<AppState> {
+    Router::new().route(
+        "/preview",
+        axum::routing::post(routes::payrun::preview::preview_payrun),
+    )
 }

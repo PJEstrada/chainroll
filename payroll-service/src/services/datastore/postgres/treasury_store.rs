@@ -245,6 +245,26 @@ impl TreasuryStore for PgTreasuryStore {
         rows.into_iter().map(TreasuryAccount::try_from).collect()
     }
 
+    async fn list_default_active(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+    ) -> Result<Vec<TreasuryAccount>, TreasuryStoreError> {
+        let rows = sqlx::query_as::<sqlx::Postgres, TreasuryAccountRow>(
+            r#"
+            SELECT * FROM treasury_accounts
+            WHERE tenant_id = $1
+              AND status = 'active'
+              AND is_default = TRUE
+            ORDER BY created_at ASC, id ASC
+            "#,
+        )
+        .bind(tenant_id.to_string())
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter().map(TreasuryAccount::try_from).collect()
+    }
+
     async fn create(
         &self,
         account: &TreasuryAccount,
@@ -462,6 +482,41 @@ mod tests {
 
         assert!(!first.is_default());
         assert!(second.is_default());
+    }
+
+    #[sqlx::test]
+    async fn lists_default_active_accounts_for_tenant(pool: PgPool) {
+        let store = PgTreasuryStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let other_tenant_id = StandardID::<IDTenant>::new();
+        let default_account = account(tenant_id, "0x20c0000000000000000000000000000000000000");
+        let other_tenant = account(
+            other_tenant_id,
+            "0x30c0000000000000000000000000000000000000",
+        );
+
+        store
+            .create(
+                &default_account,
+                &audit_event(&default_account, AuditEventType::TreasuryAccountCreated),
+            )
+            .await
+            .unwrap();
+        store
+            .create(
+                &other_tenant,
+                &audit_event(&other_tenant, AuditEventType::TreasuryAccountCreated),
+            )
+            .await
+            .unwrap();
+
+        let accounts = store.list_default_active(&tenant_id).await.unwrap();
+
+        assert_eq!(accounts.len(), 1);
+        assert_eq!(accounts[0].id(), default_account.id());
+        assert_eq!(accounts[0].tenant_id(), &tenant_id);
+        assert!(accounts[0].is_default());
+        assert_eq!(accounts[0].status(), ObjectStatus::Active);
     }
 
     #[sqlx::test]

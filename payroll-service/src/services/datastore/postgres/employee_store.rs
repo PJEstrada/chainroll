@@ -259,6 +259,25 @@ impl EmployeeStore for PgEmployeeStore {
         rows.into_iter().map(Employee::try_from).collect()
     }
 
+    async fn list_active(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+    ) -> Result<Vec<Employee>, EmployeeStoreError> {
+        let rows = sqlx::query_as::<sqlx::Postgres, EmployeeRow>(
+            r#"
+            SELECT * FROM employees
+            WHERE tenant_id = $1
+              AND status = 'active'
+            ORDER BY created_at ASC, id ASC
+            "#,
+        )
+        .bind(tenant_id.to_string())
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter().map(Employee::try_from).collect()
+    }
+
     async fn count(&self, tenant_id: &StandardID<IDTenant>) -> Result<i64, EmployeeStoreError> {
         let (count,) =
             sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM employees WHERE tenant_id = $1")
@@ -413,6 +432,25 @@ mod tests {
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].identifier(), "12345");
         assert_eq!(result[1].identifier(), "67890");
+    }
+
+    #[sqlx::test]
+    async fn test_list_active_employees(pool: PgPool) {
+        let store = PgEmployeeStore::new(pool);
+        let tenant_id = StandardID::<IDTenant>::new();
+        let active = Employee::new("12345".to_string(), "John".to_string(), "Doe".to_string());
+        let mut inactive =
+            Employee::new("67890".to_string(), "Jane".to_string(), "Smith".to_string());
+        inactive.set_status(ObjectStatus::Inactive);
+
+        store.create(&tenant_id, &active).await.unwrap();
+        store.create(&tenant_id, &inactive).await.unwrap();
+
+        let result = store.list_active(&tenant_id).await.unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].identifier(), "12345");
+        assert_eq!(result[0].status(), &ObjectStatus::Active);
     }
 
     #[sqlx::test]
