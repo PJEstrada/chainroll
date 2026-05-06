@@ -19,11 +19,19 @@ fn set_db_url() -> SecretString {
 pub mod env {
     #[allow(dead_code)]
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
+    pub const APP_ADDRESS: &str = "APP_ADDRESS";
     pub const DATABASE_URL: &str = "DATABASE_URL";
 }
 
 pub mod prod {
-    pub const APP_ADDRESS: &str = "0.0.0.0:3000";
+    use crate::utils::settings::env;
+    use std::env as std_env;
+
+    pub const DEFAULT_APP_ADDRESS: &str = "0.0.0.0:3000";
+
+    pub fn app_address() -> String {
+        std_env::var(env::APP_ADDRESS).unwrap_or_else(|_| DEFAULT_APP_ADDRESS.to_owned())
+    }
 }
 
 #[allow(dead_code)]
