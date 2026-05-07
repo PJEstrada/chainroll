@@ -6,6 +6,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PayrunAPIError {
+    #[error("invalid id: {0}")]
+    InvalidId(#[from] payroll_service::domain::ids::IdError),
     #[error("Service error")]
     ServiceError(error_stack::Report<payroll_service::Error>),
 }
@@ -13,6 +15,7 @@ pub enum PayrunAPIError {
 impl IntoResponse for PayrunAPIError {
     fn into_response(self) -> Response {
         let status = match &self {
+            PayrunAPIError::InvalidId(_) => StatusCode::BAD_REQUEST,
             PayrunAPIError::ServiceError(report)
                 if matches!(
                     report.current_context(),
