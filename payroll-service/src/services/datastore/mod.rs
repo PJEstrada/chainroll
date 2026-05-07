@@ -4,9 +4,11 @@ use crate::domain::audit::AuditEvent;
 use crate::domain::compensation::{CompensationProfile, IDCompensationProfile};
 use crate::domain::employee::{Employee, EmployeeQuery, IDEmployee};
 use crate::domain::ids::StandardID;
+use crate::domain::payrun::{IDPayrun, Payrun};
 use crate::domain::tenant::IDTenant;
 use crate::domain::treasury::{IDTreasuryAccount, TreasuryAccount, TreasuryAccountQuery};
 use crate::services::datastore::postgres::compensation_store::CompensationStoreError;
+use crate::services::datastore::postgres::payrun_store::PayrunStoreError;
 use postgres::audit_store::AuditStoreError;
 use postgres::employee_store::EmployeeStoreError;
 use postgres::treasury_store::TreasuryStoreError;
@@ -140,4 +142,16 @@ pub trait CompensationStore: Send + Sync + 'static {
 
 #[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
 #[allow(async_fn_in_trait)]
-pub trait PayrunStore: Send + Sync + 'static {}
+pub trait PayrunStore: Send + Sync + 'static {
+    async fn create(
+        &self,
+        payrun: &Payrun,
+        audit_event: &AuditEvent,
+    ) -> Result<Payrun, PayrunStoreError>;
+
+    async fn get(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        id: &StandardID<IDPayrun>,
+    ) -> Result<Option<Payrun>, PayrunStoreError>;
+}

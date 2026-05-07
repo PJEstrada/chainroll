@@ -112,8 +112,14 @@ fn compensation_routes() -> Router<AppState> {
 }
 
 fn payrun_routes() -> Router<AppState> {
-    Router::new().route(
-        "/preview",
-        axum::routing::post(routes::payrun::preview::preview_payrun),
-    )
+    Router::new()
+        .route(
+            "/",
+            axum::routing::post(routes::payrun::create::create_payrun),
+        )
+        .route("/{id}", get(routes::payrun::get::get_payrun))
+        .route(
+            "/preview",
+            axum::routing::post(routes::payrun::preview::preview_payrun),
+        )
 }
