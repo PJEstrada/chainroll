@@ -17,6 +17,9 @@
   --color-ink-secondary: #4a4a52;
   --color-ink-muted: #8a8880;
 
+  --color-link: #356b9a;
+  --color-link-hover: #285579;
+
   --color-success-bg: #edfaf4;
   --color-success: #1d9e75;
   --color-warning-bg: #fef3e2;
@@ -38,6 +41,9 @@
   --color-ink-primary: #f0f0ee;
   --color-ink-secondary: #9a9aaa;
   --color-ink-muted: #5a5a68;
+
+  --color-link: #84a9d2;
+  --color-link-hover: #b0c7e2;
 
   --color-success-bg: #0d2e22;
   --color-success: #2ec98a;
