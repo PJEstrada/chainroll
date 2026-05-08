@@ -1,6 +1,49 @@
 version: "3"
 
+vars:
+  BACKEND_PORT: 3001
+  DEV_DB_NAME: chainroll_payrun_preview_frontend
+  FRONTEND_PORT: 3000
+  POSTGRES_CONTAINER: live-bootcamp-project-db-1
+  POSTGRES_USER: postgres
+
 tasks:
+  dev:
+    desc: Ensure the dev DB exists, then run the API and frontend together
+    cmds:
+      - task: dev:db
+      - task --dir {{.TASKFILE_DIR}} --parallel dev:api dev:frontend
+
+  dev:db:
+    desc: Create the local dev database if it does not exist
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        if docker exec {{.POSTGRES_CONTAINER}} psql -U {{.POSTGRES_USER}} -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '{{.DEV_DB_NAME}}'" | grep -q 1; then
+          echo "Database {{.DEV_DB_NAME}} already exists"
+        else
+          docker exec {{.POSTGRES_CONTAINER}} createdb -U {{.POSTGRES_USER}} {{.DEV_DB_NAME}}
+          echo "Created database {{.DEV_DB_NAME}}"
+        fi
+
+  dev:api:
+    desc: Run the API on port {{.BACKEND_PORT}} using the dev database
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        set -a
+        . payroll-service/.env
+        set +a
+        export DATABASE_URL="$(ruby -ruri -e 'u = URI(ENV.fetch("DATABASE_URL")); u.path = "/{{.DEV_DB_NAME}}"; print u.to_s')"
+        APP_ADDRESS=127.0.0.1:{{.BACKEND_PORT}} cargo run -p api
+
+  dev:frontend:
+    desc: Run the frontend on port {{.FRONTEND_PORT}}
+    dir: "{{.TASKFILE_DIR}}/frontend"
+    cmds:
+      - test -d node_modules || pnpm install
+      - pnpm exec next dev --turbopack -p {{.FRONTEND_PORT}}
+
   build:
     desc: Build all workspace crates
     cmd: cargo build --workspace
