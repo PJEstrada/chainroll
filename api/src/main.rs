@@ -8,9 +8,11 @@ use application::Application;
 use payroll_service::services::compensation::service::CompensationServiceImpl;
 use payroll_service::services::datastore::postgres::compensation_store::PgCompensationStore;
 use payroll_service::services::datastore::postgres::employee_store::PgEmployeeStore;
+use payroll_service::services::datastore::postgres::payout_instruction_store::PgPayoutInstructionStore;
 use payroll_service::services::datastore::postgres::payrun_store::PgPayrunStore;
 use payroll_service::services::datastore::postgres::treasury_store::PgTreasuryStore;
 use payroll_service::services::employee::service::EmployeeServiceImpl;
+use payroll_service::services::payout_instruction::service::PayoutInstructionServiceImpl;
 use payroll_service::services::payrun::service::PayrunServiceImpl;
 use payroll_service::services::treasury::service::TreasuryServiceImpl;
 use secrecy::{ExposeSecret, SecretString};
@@ -25,11 +27,15 @@ async fn main() {
     let pg_pool = configure_postgresql().await;
     let employee_store = PgEmployeeStore::new(pg_pool.clone());
     let payrun_employee_store = employee_store.clone();
+    let payout_instruction_employee_store = employee_store.clone();
     let treasury_store = PgTreasuryStore::new(pg_pool.clone());
     let payrun_treasury_store = treasury_store.clone();
+    let payout_instruction_treasury_store = treasury_store.clone();
     let compensation_store = PgCompensationStore::new(pg_pool.clone());
     let payrun_compensation_store = compensation_store.clone();
-    let payrun_store = PgPayrunStore::new(pg_pool);
+    let payrun_store = PgPayrunStore::new(pg_pool.clone());
+    let payout_instruction_payrun_store = payrun_store.clone();
+    let payout_instruction_store = PgPayoutInstructionStore::new(pg_pool);
     let employee_service = EmployeeServiceImpl::new(employee_store);
     let treasury_service = TreasuryServiceImpl::new(treasury_store);
     let compensation_service = CompensationServiceImpl::new(compensation_store);
@@ -39,11 +45,18 @@ async fn main() {
         payrun_treasury_store,
         payrun_store,
     );
+    let payout_instruction_service = PayoutInstructionServiceImpl::new(
+        payout_instruction_employee_store,
+        payout_instruction_treasury_store,
+        payout_instruction_payrun_store,
+        payout_instruction_store,
+    );
     let app_state = AppState::new(
         employee_service,
         treasury_service,
         compensation_service,
         payrun_service,
+        payout_instruction_service,
     );
 
     let app_address = prod::app_address();

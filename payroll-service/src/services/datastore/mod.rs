@@ -4,10 +4,12 @@ use crate::domain::audit::AuditEvent;
 use crate::domain::compensation::{CompensationProfile, IDCompensationProfile};
 use crate::domain::employee::{Employee, EmployeeQuery, IDEmployee};
 use crate::domain::ids::StandardID;
+use crate::domain::payout_instruction::{IDPayoutInstruction, PayoutInstruction};
 use crate::domain::payrun::{IDPayrun, Payrun};
 use crate::domain::tenant::IDTenant;
 use crate::domain::treasury::{IDTreasuryAccount, TreasuryAccount, TreasuryAccountQuery};
 use crate::services::datastore::postgres::compensation_store::CompensationStoreError;
+use crate::services::datastore::postgres::payout_instruction_store::PayoutInstructionStoreError;
 use crate::services::datastore::postgres::payrun_store::PayrunStoreError;
 use postgres::audit_store::AuditStoreError;
 use postgres::employee_store::EmployeeStoreError;
@@ -154,4 +156,26 @@ pub trait PayrunStore: Send + Sync + 'static {
         tenant_id: &StandardID<IDTenant>,
         id: &StandardID<IDPayrun>,
     ) -> Result<Option<Payrun>, PayrunStoreError>;
+}
+
+#[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
+#[allow(async_fn_in_trait)]
+pub trait PayoutInstructionStore: Send + Sync + 'static {
+    async fn create_many_idempotent(
+        &self,
+        instructions: &[PayoutInstruction],
+        audit_events: &[AuditEvent],
+    ) -> Result<Vec<PayoutInstruction>, PayoutInstructionStoreError>;
+
+    async fn list_for_payrun(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        payrun_id: &StandardID<IDPayrun>,
+    ) -> Result<Vec<PayoutInstruction>, PayoutInstructionStoreError>;
+
+    async fn get(
+        &self,
+        tenant_id: &StandardID<IDTenant>,
+        id: &StandardID<IDPayoutInstruction>,
+    ) -> Result<Option<PayoutInstruction>, PayoutInstructionStoreError>;
 }

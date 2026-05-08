@@ -4,9 +4,13 @@ use payroll_service::services::compensation::service::{
 };
 use payroll_service::services::datastore::postgres::compensation_store::PgCompensationStore;
 use payroll_service::services::datastore::postgres::employee_store::PgEmployeeStore;
+use payroll_service::services::datastore::postgres::payout_instruction_store::PgPayoutInstructionStore;
 use payroll_service::services::datastore::postgres::payrun_store::PgPayrunStore;
 use payroll_service::services::datastore::postgres::treasury_store::PgTreasuryStore;
 use payroll_service::services::employee::service::{EmployeeService, EmployeeServiceImpl};
+use payroll_service::services::payout_instruction::service::{
+    PayoutInstructionService, PayoutInstructionServiceImpl,
+};
 use payroll_service::services::payrun::service::{PayrunService, PayrunServiceImpl};
 use payroll_service::services::treasury::service::{TreasuryService, TreasuryServiceImpl};
 use std::sync::Arc;
@@ -16,6 +20,12 @@ pub type AppState = AppStateInner<
     TreasuryServiceImpl<PgTreasuryStore>,
     CompensationServiceImpl<PgCompensationStore>,
     PayrunServiceImpl<PgEmployeeStore, PgCompensationStore, PgTreasuryStore, PgPayrunStore>,
+    PayoutInstructionServiceImpl<
+        PgEmployeeStore,
+        PgTreasuryStore,
+        PgPayrunStore,
+        PgPayoutInstructionStore,
+    >,
 >;
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -24,15 +34,22 @@ pub struct AppStateInner<
     T: TreasuryService,
     C: CompensationService,
     P: PayrunService,
+    PI: PayoutInstructionService,
 > {
     pub employee_service: Arc<E>,
     pub treasury_service: Arc<T>,
     pub compensation_service: Arc<C>,
     pub payrun_service: Arc<P>,
+    pub payout_instruction_service: Arc<PI>,
 }
 
-impl<E: EmployeeService, T: TreasuryService, C: CompensationService, P: PayrunService> Clone
-    for AppStateInner<E, T, C, P>
+impl<
+    E: EmployeeService,
+    T: TreasuryService,
+    C: CompensationService,
+    P: PayrunService,
+    PI: PayoutInstructionService,
+> Clone for AppStateInner<E, T, C, P, PI>
 {
     fn clone(&self) -> Self {
         Self {
@@ -40,19 +57,32 @@ impl<E: EmployeeService, T: TreasuryService, C: CompensationService, P: PayrunSe
             treasury_service: Arc::clone(&self.treasury_service),
             compensation_service: Arc::clone(&self.compensation_service),
             payrun_service: Arc::clone(&self.payrun_service),
+            payout_instruction_service: Arc::clone(&self.payout_instruction_service),
         }
     }
 }
 
-impl<E: EmployeeService, T: TreasuryService, C: CompensationService, P: PayrunService>
-    AppStateInner<E, T, C, P>
+impl<
+    E: EmployeeService,
+    T: TreasuryService,
+    C: CompensationService,
+    P: PayrunService,
+    PI: PayoutInstructionService,
+> AppStateInner<E, T, C, P, PI>
 {
-    pub fn new(employee_svc: E, treasury_svc: T, compensation_svc: C, payrun_svc: P) -> Self {
+    pub fn new(
+        employee_svc: E,
+        treasury_svc: T,
+        compensation_svc: C,
+        payrun_svc: P,
+        payout_instruction_svc: PI,
+    ) -> Self {
         Self {
             employee_service: Arc::new(employee_svc),
             treasury_service: Arc::new(treasury_svc),
             compensation_service: Arc::new(compensation_svc),
             payrun_service: Arc::new(payrun_svc),
+            payout_instruction_service: Arc::new(payout_instruction_svc),
         }
     }
 }
@@ -79,10 +109,15 @@ impl<E: EmployeeService> EmployeeState<E> {
     }
 }
 
-impl<E: EmployeeService, T: TreasuryService, C: CompensationService, P: PayrunService>
-    FromRef<AppStateInner<E, T, C, P>> for EmployeeState<E>
+impl<
+    E: EmployeeService,
+    T: TreasuryService,
+    C: CompensationService,
+    P: PayrunService,
+    PI: PayoutInstructionService,
+> FromRef<AppStateInner<E, T, C, P, PI>> for EmployeeState<E>
 {
-    fn from_ref(state: &AppStateInner<E, T, C, P>) -> Self {
+    fn from_ref(state: &AppStateInner<E, T, C, P, PI>) -> Self {
         Self {
             employee_service: Arc::clone(&state.employee_service),
         }
@@ -111,10 +146,15 @@ impl<T: TreasuryService> TreasuryState<T> {
     }
 }
 
-impl<E: EmployeeService, T: TreasuryService, C: CompensationService, P: PayrunService>
-    FromRef<AppStateInner<E, T, C, P>> for TreasuryState<T>
+impl<
+    E: EmployeeService,
+    T: TreasuryService,
+    C: CompensationService,
+    P: PayrunService,
+    PI: PayoutInstructionService,
+> FromRef<AppStateInner<E, T, C, P, PI>> for TreasuryState<T>
 {
-    fn from_ref(state: &AppStateInner<E, T, C, P>) -> Self {
+    fn from_ref(state: &AppStateInner<E, T, C, P, PI>) -> Self {
         Self {
             treasury_service: Arc::clone(&state.treasury_service),
         }
@@ -143,10 +183,15 @@ impl<C: CompensationService> CompensationState<C> {
     }
 }
 
-impl<E: EmployeeService, T: TreasuryService, C: CompensationService, P: PayrunService>
-    FromRef<AppStateInner<E, T, C, P>> for CompensationState<C>
+impl<
+    E: EmployeeService,
+    T: TreasuryService,
+    C: CompensationService,
+    P: PayrunService,
+    PI: PayoutInstructionService,
+> FromRef<AppStateInner<E, T, C, P, PI>> for CompensationState<C>
 {
-    fn from_ref(state: &AppStateInner<E, T, C, P>) -> Self {
+    fn from_ref(state: &AppStateInner<E, T, C, P, PI>) -> Self {
         Self {
             compensation_service: Arc::clone(&state.compensation_service),
         }
@@ -175,12 +220,56 @@ impl<P: PayrunService> PayrunState<P> {
     }
 }
 
-impl<E: EmployeeService, T: TreasuryService, C: CompensationService, P: PayrunService>
-    FromRef<AppStateInner<E, T, C, P>> for PayrunState<P>
+impl<
+    E: EmployeeService,
+    T: TreasuryService,
+    C: CompensationService,
+    P: PayrunService,
+    PI: PayoutInstructionService,
+> FromRef<AppStateInner<E, T, C, P, PI>> for PayrunState<P>
 {
-    fn from_ref(state: &AppStateInner<E, T, C, P>) -> Self {
+    fn from_ref(state: &AppStateInner<E, T, C, P, PI>) -> Self {
         Self {
             payrun_service: Arc::clone(&state.payrun_service),
+        }
+    }
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct PayoutInstructionState<PI: PayoutInstructionService> {
+    pub payout_instruction_service: Arc<PI>,
+}
+
+impl<PI: PayoutInstructionService> Clone for PayoutInstructionState<PI> {
+    fn clone(&self) -> Self {
+        Self {
+            payout_instruction_service: Arc::clone(&self.payout_instruction_service),
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+impl<PI: PayoutInstructionService> PayoutInstructionState<PI> {
+    pub fn new(payout_instruction_svc: PI) -> Self {
+        Self {
+            payout_instruction_service: Arc::new(payout_instruction_svc),
+        }
+    }
+}
+
+impl<
+    E: EmployeeService,
+    T: TreasuryService,
+    C: CompensationService,
+    P: PayrunService,
+    PI: PayoutInstructionService,
+> FromRef<AppStateInner<E, T, C, P, PI>> for PayoutInstructionState<PI>
+{
+    fn from_ref(state: &AppStateInner<E, T, C, P, PI>) -> Self {
+        Self {
+            payout_instruction_service: Arc::clone(&state.payout_instruction_service),
         }
     }
 }
