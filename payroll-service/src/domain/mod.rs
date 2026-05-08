@@ -4,6 +4,7 @@ pub mod compensation;
 pub mod division;
 pub mod employee;
 pub mod ids;
+pub mod payout_instruction;
 pub mod payrun;
 pub mod query;
 pub mod tenant;
