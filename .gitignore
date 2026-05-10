@@ -2,3 +2,6 @@
 target
 .claude
 payroll-service/.env
+.DS_Store
+e2e-tests/*.env
+e2e-tests/*.local

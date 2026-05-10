@@ -17,6 +17,9 @@ sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "mig
 color-eyre = "0.6.5"
 anyhow = "1.0.102"
 alloy-primitives = "1.5.7"
+alloy = "2.0.4"
+chain_access = { path = "../chain-access" }
+privy-rs = "0.1.0-alpha"
 
 [dev-dependencies]
 mockall = "0.13"
