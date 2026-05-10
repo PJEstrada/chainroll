@@ -119,6 +119,10 @@ fn payrun_routes() -> Router<AppState> {
         )
         .route("/{id}", get(routes::payrun::get::get_payrun))
         .route(
+            "/{id}/submit-payouts",
+            axum::routing::post(routes::payrun::submit_payouts::submit_payrun_payouts),
+        )
+        .route(
             "/preview",
             axum::routing::post(routes::payrun::preview::preview_payrun),
         )

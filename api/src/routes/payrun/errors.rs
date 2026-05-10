@@ -17,12 +17,25 @@ impl IntoResponse for PayrunAPIError {
         let status = match &self {
             PayrunAPIError::InvalidId(_) => StatusCode::BAD_REQUEST,
             PayrunAPIError::ServiceError(report)
+                if matches!(report.current_context(), payroll_service::Error::NotFound) =>
+            {
+                StatusCode::NOT_FOUND
+            }
+            PayrunAPIError::ServiceError(report)
                 if matches!(
                     report.current_context(),
                     payroll_service::Error::InvalidInput(_)
                 ) =>
             {
                 StatusCode::BAD_REQUEST
+            }
+            PayrunAPIError::ServiceError(report)
+                if matches!(
+                    report.current_context(),
+                    payroll_service::Error::Conflict(_)
+                ) =>
+            {
+                StatusCode::CONFLICT
             }
             PayrunAPIError::ServiceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };

@@ -33,6 +33,10 @@ tasks:
       - |
         set -a
         . payroll-service/.env
+        e2e_env_file="${CHAINROLL_E2E_ENV_FILE:-e2e-tests/tempo-privy-payroll.env}"
+        if [ -f "$e2e_env_file" ]; then
+          . "$e2e_env_file"
+        fi
         set +a
         export DATABASE_URL="$(ruby -ruri -e 'u = URI(ENV.fetch("DATABASE_URL")); u.path = "/{{.DEV_DB_NAME}}"; print u.to_s')"
         APP_ADDRESS=127.0.0.1:{{.BACKEND_PORT}} cargo run -p api
@@ -63,6 +67,204 @@ tasks:
   test:
     desc: Run all tests in the workspace
     cmd: cargo test --workspace
+
+  e2e:tempo-privy-payroll:
+    desc: Run the ignored real Tempo/Privy payroll e2e test with .env support and interactive inputs
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        set -eu
+
+        prompt_default() {
+          var_name="$1"
+          label="$2"
+          default_value="$3"
+          current_value="$(eval "printf '%s' \"\${${var_name}:-}\"")"
+
+          if [ -z "$current_value" ]; then
+            current_value="$default_value"
+          fi
+
+          if [ -n "$current_value" ]; then
+            printf "%s [%s]: " "$label" "$current_value"
+          else
+            printf "%s: " "$label"
+          fi
+
+          read -r input_value
+          if [ -z "$input_value" ]; then
+            input_value="$current_value"
+          fi
+
+          eval "export ${var_name}=\"\$input_value\""
+        }
+
+        prompt_required() {
+          var_name="$1"
+          label="$2"
+          current_value="$(eval "printf '%s' \"\${${var_name}:-}\"")"
+
+          while [ -z "$current_value" ]; do
+            printf "%s: " "$label"
+            read -r current_value
+          done
+
+          eval "export ${var_name}=\"\$current_value\""
+        }
+
+        prompt_default CHAINROLL_E2E_ENV_FILE "E2E .env file path" "e2e-tests/tempo-privy-payroll.env"
+        if [ -f "$CHAINROLL_E2E_ENV_FILE" ]; then
+          set -a
+          . "$CHAINROLL_E2E_ENV_FILE"
+          set +a
+          echo "Loaded $CHAINROLL_E2E_ENV_FILE"
+        else
+          echo "No env file found at $CHAINROLL_E2E_ENV_FILE; continuing with prompts."
+        fi
+
+        echo "This task broadcasts real Tempo testnet stablecoin transactions."
+        printf "Type RUN to continue: "
+        read -r confirm
+        if [ "$confirm" != "RUN" ]; then
+          echo "Cancelled."
+          exit 1
+        fi
+
+        prompt_default CHAINROLL_E2E_BASE_URL "Chainroll API base URL" "http://127.0.0.1:{{.BACKEND_PORT}}"
+        prompt_default CHAINROLL_E2E_TOKEN_SYMBOL "Token symbol" "pathUSD"
+        prompt_default CHAINROLL_E2E_TOKEN_ADDRESS "Token contract address" "0x20c0000000000000000000000000000000000000"
+        prompt_default CHAINROLL_E2E_TOKEN_DECIMALS "Token decimals" "18"
+        prompt_default CHAINROLL_E2E_AMOUNT_UNITS "Amount per employee in minor units" "1"
+        prompt_default CHAINROLL_E2E_TENANT_ID "Tenant id (blank creates a random one)" ""
+        prompt_default CHAINROLL_E2E_ACTOR_ID "Actor id (blank creates a random one)" ""
+        prompt_required TEMPO_PRIVY_WALLET_ID "Privy treasury wallet id"
+        prompt_required CHAINROLL_E2E_TREASURY_ADDRESS "Funded treasury wallet public address"
+        prompt_required CHAINROLL_E2E_EMPLOYEE_WALLETS "Three employee wallet addresses, comma-separated"
+
+        export CHAINROLL_E2E_EXECUTE_REAL_PAYOUTS=true
+
+        cargo test -p e2e-tests tempo_privy_full_payroll_flow -- --ignored --nocapture
+
+  e2e:create-privy-treasury-wallet:
+    desc: Create a Privy Ethereum wallet for the Tempo treasury e2e setup
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        set -eu
+
+        prompt_default() {
+          var_name="$1"
+          label="$2"
+          default_value="$3"
+          current_value="$(eval "printf '%s' \"\${${var_name}:-}\"")"
+
+          if [ -z "$current_value" ]; then
+            current_value="$default_value"
+          fi
+
+          if [ -n "$current_value" ]; then
+            printf "%s [%s]: " "$label" "$current_value"
+          else
+            printf "%s: " "$label"
+          fi
+
+          read -r input_value
+          if [ -z "$input_value" ]; then
+            input_value="$current_value"
+          fi
+
+          eval "export ${var_name}=\"\$input_value\""
+        }
+
+        prompt_required() {
+          var_name="$1"
+          label="$2"
+          current_value="$(eval "printf '%s' \"\${${var_name}:-}\"")"
+
+          while [ -z "$current_value" ]; do
+            printf "%s: " "$label"
+            read -r current_value
+          done
+
+          eval "export ${var_name}=\"\$current_value\""
+        }
+
+        prompt_default CHAINROLL_E2E_ENV_FILE "E2E .env file path" "e2e-tests/tempo-privy-payroll.env"
+        if [ -f "$CHAINROLL_E2E_ENV_FILE" ]; then
+          set -a
+          . "$CHAINROLL_E2E_ENV_FILE"
+          set +a
+          echo "Loaded $CHAINROLL_E2E_ENV_FILE"
+        else
+          echo "No env file found at $CHAINROLL_E2E_ENV_FILE; continuing with prompts."
+        fi
+
+        prompt_required PRIVY_APP_ID "Privy app id"
+        prompt_required PRIVY_APP_SECRET "Privy app secret"
+
+        cargo run -p e2e-tests --bin create_privy_treasury_wallet
+
+  e2e:fund-tempo-wallet:
+    desc: Fund the configured Tempo treasury wallet from the Tempo testnet faucet
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        set -eu
+
+        prompt_default() {
+          var_name="$1"
+          label="$2"
+          default_value="$3"
+          current_value="$(eval "printf '%s' \"\${${var_name}:-}\"")"
+
+          if [ -z "$current_value" ]; then
+            current_value="$default_value"
+          fi
+
+          if [ -n "$current_value" ]; then
+            printf "%s [%s]: " "$label" "$current_value"
+          else
+            printf "%s: " "$label"
+          fi
+
+          read -r input_value
+          if [ -z "$input_value" ]; then
+            input_value="$current_value"
+          fi
+
+          eval "export ${var_name}=\"\$input_value\""
+        }
+
+        prompt_required() {
+          var_name="$1"
+          label="$2"
+          current_value="$(eval "printf '%s' \"\${${var_name}:-}\"")"
+
+          while [ -z "$current_value" ]; do
+            printf "%s: " "$label"
+            read -r current_value
+          done
+
+          eval "export ${var_name}=\"\$current_value\""
+        }
+
+        prompt_default CHAINROLL_E2E_ENV_FILE "E2E .env file path" "e2e-tests/tempo-privy-payroll.env"
+        if [ -f "$CHAINROLL_E2E_ENV_FILE" ]; then
+          set -a
+          . "$CHAINROLL_E2E_ENV_FILE"
+          set +a
+          echo "Loaded $CHAINROLL_E2E_ENV_FILE"
+        else
+          echo "No env file found at $CHAINROLL_E2E_ENV_FILE; continuing with prompts."
+        fi
+
+        prompt_required CHAINROLL_E2E_TREASURY_ADDRESS "Tempo wallet address to fund"
+
+        echo "Requesting Tempo testnet faucet funds for $CHAINROLL_E2E_TREASURY_ADDRESS"
+        curl -sS -X POST https://docs.tempo.xyz/api/faucet \
+          -H "Content-Type: application/json" \
+          -d "{\"address\":\"$CHAINROLL_E2E_TREASURY_ADDRESS\"}"
+        echo
 
   fmt:
     desc: Format all code
